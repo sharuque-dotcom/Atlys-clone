@@ -6,7 +6,7 @@ export function Logo({ className = "" }: { className?: string }) {
         <path d="M7 20c3.5-6 8-9 18-9-4 2-6.5 4.5-8 9" stroke="#f4ecdc" strokeWidth="2.4" fill="none" strokeLinecap="round" />
         <circle cx="22" cy="21" r="2.4" fill="#c9a465" />
       </svg>
-      <span>Safar<span className="font-normal text-slate-500"> Enterprise</span></span>
+      <span>Safar<span className="font-normal text-slate-500"> for Agencies</span></span>
     </span>
   );
 }

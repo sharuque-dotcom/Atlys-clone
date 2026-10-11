@@ -4,8 +4,8 @@ import { getLocale } from "@/lib/locale";
 import { dirOf } from "@/lib/i18n";
 
 export const metadata: Metadata = {
-  title: { default: "Safar Enterprise — business visas for UAE teams", template: "%s · Safar" },
-  description: "UAE-first enterprise visa platform: eligibility by nationality, auto-generated NOCs, VAT-compliant invoicing, WhatsApp updates.",
+  title: { default: "Safar — the visa desk for UAE travel agencies", template: "%s · Safar" },
+  description: "Quote families in minutes, collect documents through a branded portal, and let our Dubai back office process the visas. Your brand, your price.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

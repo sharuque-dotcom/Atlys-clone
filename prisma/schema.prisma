@@ -1,4 +1,4 @@
-// Safar Enterprise — data model
+// Safar — data model (tenants are travel agencies serving retail customers)
 // Enum-like fields are stored as strings (see src/lib/types.ts for the allowed values)
 // so the same schema runs on SQLite (dev) and PostgreSQL (production, UAE region).
 
@@ -26,21 +26,101 @@ model Enterprise {
   size             String?
   creditLimitFils  Int      @default(0)
   plan             String   @default("GROWTH") // STARTER | GROWTH | ENTERPRISE
+  // Travel-agency profile (each tenant is an agency reselling Safar visa processing to retail customers)
+  tourismLicenseNo String? // DET / DCT travel agency licence
+  phone            String?
+  email            String?
+  brandColor       String   @default("#0f7a69")
+  markupPct        Int      @default(40) // default markup on Safar's net service fee
+  invoicePrefix    String   @default("INV")
   createdAt        DateTime @default(now())
 
   branches       Branch[]
   users          User[]
   travelers      Traveler[]
   applications   Application[]
-  trips          Trip[]
   accessRequests AccessRequest[]
   invoices       Invoice[]
   auditLogs      AuditLog[]
   messages       Message[]
   apiKeys        ApiKey[]
   webhooks       Webhook[]
-  policy         Policy?
-  costCenters    CostCenter[]
+  customers      Customer[]
+  bookings       Booking[]
+  agencyPrices   AgencyPrice[]
+  payments       Payment[]
+}
+
+/// Agency's own retail service fee for a product (overrides markupPct)
+model AgencyPrice {
+  id            String     @id @default(cuid())
+  enterpriseId  String
+  enterprise    Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  productId     String
+  serviceFeeFils Int
+
+  @@unique([enterpriseId, productId])
+}
+
+/// A retail client of the agency — usually the head of a household who brings family members.
+model Customer {
+  id           String     @id @default(cuid())
+  enterpriseId String
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  name         String
+  phone        String? // WhatsApp
+  email        String?
+  emirate      String?
+  source       String     @default("WALK_IN") // WALK_IN | WHATSAPP | REFERRAL | SOCIAL | WEBSITE | REPEAT
+  notes        String?
+  assignedToId String?
+  assignedTo   User?      @relation("AssignedCustomers", fields: [assignedToId], references: [id])
+  createdAt    DateTime   @default(now())
+
+  members  Traveler[]
+  bookings Booking[]
+
+  @@index([enterpriseId, name])
+}
+
+/// One sale: a household's trip (one or more applications), with a quote, payments and a customer-facing portal link.
+model Booking {
+  id           String     @id @default(cuid())
+  ref          String     @unique
+  enterpriseId String
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  customerId   String
+  customer     Customer   @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  destination  String
+  purpose      String
+  travelStart  DateTime
+  travelEnd    DateTime
+  status       String     @default("QUOTED") // QUOTED | CONFIRMED | IN_PROGRESS | COMPLETED | CANCELLED
+  portalToken  String     @unique
+  sellTotalFils Int       @default(0)
+  netTotalFils  Int       @default(0)
+  discountFils  Int       @default(0)
+  notes        String?
+  createdById  String
+  createdBy    User       @relation("BookingsCreated", fields: [createdById], references: [id])
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  applications Application[]
+  payments     Payment[]
+}
+
+model Payment {
+  id           String     @id @default(cuid())
+  enterpriseId String
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  bookingId    String
+  booking      Booking    @relation(fields: [bookingId], references: [id], onDelete: Cascade)
+  amountFils   Int
+  method       String // CASH | CARD | BANK_TRANSFER | PAYMENT_LINK
+  reference    String?
+  receivedBy   String
+  createdAt    DateTime   @default(now())
 }
 
 model Branch {
@@ -54,30 +134,7 @@ model Branch {
   travelers    Traveler[]
 }
 
-model CostCenter {
-  id           String        @id @default(cuid())
-  enterpriseId String
-  enterprise   Enterprise    @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-  code         String
-  name         String
-  budgetFils   Int           @default(0)
-  applications Application[]
 
-  @@unique([enterpriseId, code])
-}
-
-model Policy {
-  id                    String     @id @default(cuid())
-  enterpriseId          String     @unique
-  enterprise            Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-  requireApproval       Boolean    @default(true)
-  autoApproveBelowFils  Int        @default(50000) // AED 500
-  allowPriority         Boolean    @default(true)
-  allowProtect          Boolean    @default(true)
-  blockedDestinations   String     @default("") // comma separated ISO2
-  minLeadDays           Int        @default(0)
-  whatsappNotifications Boolean    @default(true)
-}
 
 model User {
   id           String     @id @default(cuid())
@@ -85,7 +142,7 @@ model User {
   name         String
   passwordHash String?
   phone        String?
-  role         String     @default("EMPLOYEE") // OWNER | ADMIN | TRAVEL_MANAGER | APPROVER | FINANCE | EMPLOYEE
+  role         String     @default("AGENT") // OWNER | ADMIN | AGENT | ACCOUNTANT
   locale       String     @default("en")
   enterpriseId String?
   enterprise   Enterprise? @relation(fields: [enterpriseId], references: [id], onDelete: SetNull)
@@ -95,8 +152,9 @@ model User {
   accessRequests  AccessRequest[]
   traveler        Traveler?       @relation("TravelerUser")
   createdApps     Application[]   @relation("CreatedBy")
-  approvedApps    Application[]   @relation("ApprovedBy")
   managedTravelers Traveler[]     @relation("Manager")
+  customers        Customer[]     @relation("AssignedCustomers")
+  bookings         Booking[]      @relation("BookingsCreated")
 }
 
 model Session {
@@ -131,6 +189,12 @@ model Traveler {
   manager             User?      @relation("Manager", fields: [managerId], references: [id])
   branchId            String?
   branch              Branch?    @relation(fields: [branchId], references: [id])
+  customerId          String?
+  customer            Customer?  @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  relationship        String     @default("SELF") // SELF | SPOUSE | CHILD | PARENT | SIBLING | OTHER (relative to the customer)
+  employmentType      String     @default("EMPLOYED") // EMPLOYED | SELF_EMPLOYED | DEPENDENT | STUDENT | RETIRED | UNEMPLOYED
+  employerName        String?
+  sponsorId           String? // family member whose income/residence sponsors this traveler
   employeeId          String?
   firstName           String
   lastName            String
@@ -174,18 +238,6 @@ model TravelerDocument {
   createdAt  DateTime  @default(now())
 }
 
-model Trip {
-  id           String        @id @default(cuid())
-  enterpriseId String
-  enterprise   Enterprise    @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
-  name         String
-  destination  String
-  purpose      String
-  startDate    DateTime
-  endDate      DateTime
-  createdAt    DateTime      @default(now())
-  applications Application[]
-}
 
 model Application {
   id                String       @id @default(cuid())
@@ -194,10 +246,8 @@ model Application {
   enterprise        Enterprise   @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
   travelerId        String
   traveler          Traveler     @relation(fields: [travelerId], references: [id], onDelete: Cascade)
-  tripId            String?
-  trip              Trip?        @relation(fields: [tripId], references: [id])
-  costCenterId      String?
-  costCenter        CostCenter?  @relation(fields: [costCenterId], references: [id])
+  bookingId         String?
+  booking           Booking?     @relation(fields: [bookingId], references: [id], onDelete: Cascade)
   destination       String
   productId         String
   purpose           String
@@ -207,7 +257,8 @@ model Application {
   status            String       @default("DRAFT")
   riskScore         Int?
   riskReport        String? // JSON
-  pricing           String // JSON PriceBreakdown (fils)
+  pricing           String // JSON PriceBreakdown (fils) — retail price charged to the customer
+  netPricing        String? // JSON PriceBreakdown (fils) — Safar's wholesale price to the agency
   appointmentAt     DateTime?
   appointmentCenter String?
   courier           String? // PICKUP | DROP_OFF | NONE
@@ -215,9 +266,6 @@ model Application {
   notes             String?
   createdById       String
   createdBy         User         @relation("CreatedBy", fields: [createdById], references: [id])
-  approvedById      String?
-  approvedBy        User?        @relation("ApprovedBy", fields: [approvedById], references: [id])
-  approvedAt        DateTime?
   submittedAt       DateTime?
   decidedAt         DateTime?
   invoiceId         String?

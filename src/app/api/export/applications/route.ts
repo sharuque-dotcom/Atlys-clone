@@ -16,17 +16,17 @@ export async function GET(req: Request) {
   const user = await currentUser();
   if (!user?.enterpriseId) return new Response("Unauthorized", { status: 401 });
   const url = new URL(req.url);
-  const trip = url.searchParams.get("trip");
+  const booking = url.searchParams.get("booking");
   const apps = await db.application.findMany({
-    where: { ...applicationScope(user as MemberUser), ...(trip ? { tripId: trip } : {}) },
-    include: { traveler: true, costCenter: true },
+    where: { ...applicationScope(user as MemberUser), ...(booking ? { bookingId: booking } : {}) },
+    include: { traveler: true, booking: { include: { customer: true } } },
     orderBy: { createdAt: "desc" },
   });
   const rows = [
-    ["ref", "traveler", "nationality", "passport_no", "destination", "visa", "purpose", "travel_start", "travel_end", "status", "risk", "cost_centre", "total_aed", "vat_aed"],
+    ["ref", "traveler", "nationality", "passport_no", "destination", "visa", "purpose", "travel_start", "travel_end", "status", "risk", "customer", "total_aed", "vat_aed"],
     ...apps.map((a) => {
       const p = parsePricing(a);
-      return [a.ref, `${a.traveler.firstName} ${a.traveler.lastName}`, a.traveler.nationality, a.traveler.passportNo, a.destination, getProduct(a.productId)?.name, a.purpose, a.travelStart.toISOString().slice(0, 10), a.travelEnd.toISOString().slice(0, 10), a.status, parseRisk(a)?.level, a.costCenter?.code, (p.totalFils / 100).toFixed(2), (p.vatFils / 100).toFixed(2)];
+      return [a.ref, `${a.traveler.firstName} ${a.traveler.lastName}`, a.traveler.nationality, a.traveler.passportNo, a.destination, getProduct(a.productId)?.name, a.purpose, a.travelStart.toISOString().slice(0, 10), a.travelEnd.toISOString().slice(0, 10), a.status, parseRisk(a)?.level, a.booking?.customer.name, (p.totalFils / 100).toFixed(2), (p.vatFils / 100).toFixed(2)];
     }),
   ];
   await audit({ id: user.id, name: user.name, enterpriseId: user.enterpriseId }, "applications.exported", "Application", null, { count: apps.length });

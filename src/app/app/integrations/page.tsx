@@ -6,15 +6,15 @@ import { fmtDate } from "@/lib/dates";
 import { Badge, Flash, PageHeader, Section } from "@/components/ui";
 import { addWebhook, createApiKey, deleteWebhook, revokeApiKey, testWebhooks } from "./actions";
 
-const HRMS = [
-  { name: "Bayzat", desc: "UAE HR & payroll — employees, salaries, Emirates ID & visa expiries." },
-  { name: "ZenHR", desc: "MENA HRMS — employee master data and leave approvals." },
-  { name: "Darwinbox", desc: "Employee directory, managers and departments." },
-  { name: "SAP SuccessFactors", desc: "Enterprise employee central via OData." },
-  { name: "Microsoft Entra ID", desc: "SSO (SAML/OIDC) and SCIM user provisioning." },
-  { name: "UAE PASS", desc: "National digital identity sign-in for employees." },
+const CONNECTORS = [
+  { name: "WhatsApp Business API", desc: "Automatic status updates and document reminders from your own agency number." },
+  { name: "Payment links (Telr / Network)", desc: "Send a card payment link with the quote; payments reconcile automatically." },
+  { name: "Zoho Books / Tally", desc: "Push customer invoices, payments and VAT to your accounting." },
+  { name: "Website enquiry form", desc: "Embed a visa checker on your site that creates customers and quotes here." },
+  { name: "Meta lead ads", desc: "Instagram / Facebook visa enquiries land as customers with source tracking." },
+  { name: "UAE PASS", desc: "Let staff sign in with the national digital identity." },
 ];
-const EVENTS = ["application.created", "application.status_changed", "ping"];
+const EVENTS = ["booking.quoted", "application.status_changed", "ping"];
 
 export default async function Integrations({ searchParams }: { searchParams: Promise<Record<string, string | undefined>> }) {
   const sp = await searchParams;
@@ -27,13 +27,13 @@ export default async function Integrations({ searchParams }: { searchParams: Pro
   ]);
   return (
     <div>
-      <PageHeader title="Integrations & API" subtitle="Connect your HRMS, SSO, TMC or booking tool." />
+      <PageHeader title="Integrations & API" subtitle="Connect WhatsApp, payments, accounting and your website." />
       <Flash searchParams={sp} />
       {newKey && <div className="mb-4 rounded-lg border border-emerald-300 bg-emerald-50 p-4"><div className="text-sm font-medium text-emerald-900">Your new API key</div><code className="mt-1 block select-all break-all font-mono text-sm">{newKey}</code></div>}
 
-      <Section title="HR systems & identity" className="mb-6">
+      <Section title="Connectors" className="mb-6">
         <div className="grid gap-3 p-4 sm:grid-cols-2 lg:grid-cols-3">
-          {HRMS.map((h) => (
+          {CONNECTORS.map((h) => (
             <div key={h.name} className="rounded-xl border border-slate-200 p-4">
               <div className="flex items-center justify-between"><span className="font-medium">{h.name}</span><Badge>Not connected</Badge></div>
               <p className="mt-1 text-xs text-slate-500">{h.desc}</p>
@@ -61,8 +61,7 @@ export default async function Integrations({ searchParams }: { searchParams: Pro
 
 GET  /api/v1/applications      list (filter ?status=)
 GET  /api/v1/applications/:ref single application
-GET  /api/v1/travelers         directory
-POST /api/v1/travelers         upsert by employeeId (HRMS sync)
+GET  /api/v1/travelers         family members on file
 GET  /api/v1/eligibility?nationality=IN&destination=FR&purpose=BUSINESS`}</pre>
           </div>
         </Section>

@@ -22,7 +22,7 @@ export async function signIn(formData: FormData) {
 }
 
 export async function demoSignIn() {
-  const user = await db.user.findUnique({ where: { email: "layla@falconlogistics.ae" } });
+  const user = await db.user.findUnique({ where: { email: "huda@oasistravel.ae" } });
   if (!user) back("/get-started", "Demo data not found — run `npm run setup` first.");
   await createSession(user!.id);
   redirect("/app");
@@ -65,8 +65,10 @@ const enterpriseSchema = z.object({
   trn: z.string().trim().optional(),
   industry: z.string().trim().optional(),
   size: z.string().trim().optional(),
-  address: z.string().trim().min(5, "Billing address is required"),
+  address: z.string().trim().min(5, "Office address is required"),
   phone: z.string().trim().optional(),
+  agencyPhone: z.string().trim().min(5, "Customer-facing phone / WhatsApp is required"),
+  tourismLicenseNo: z.string().trim().optional(),
 });
 
 export async function registerEnterprise(formData: FormData) {
@@ -82,7 +84,7 @@ export async function registerEnterprise(formData: FormData) {
   if (d.phone && !phone) back(P, "Enter a UAE mobile number, e.g. 050 123 4567.");
 
   const domain = isCorporateEmail(user.email) ? emailDomain(user.email) : null;
-  if (domain && (await db.enterprise.findUnique({ where: { domain } }))) back("/get-started/onboarding", "Your company is already on Safar — request access instead.");
+  if (domain && (await db.enterprise.findUnique({ where: { domain } }))) back("/get-started/onboarding", "Your agency is already on Safar — request access instead.");
 
   const enterprise = await db.enterprise.create({
     data: {
@@ -90,6 +92,9 @@ export async function registerEnterprise(formData: FormData) {
       legalName: d.legalName,
       tradeLicenseNo: d.tradeLicenseNo,
       licenseAuthority: d.licenseAuthority,
+      tourismLicenseNo: d.tourismLicenseNo || null,
+      phone: normalizeUaeMobile(d.agencyPhone) ?? d.agencyPhone,
+      email: user.email,
       emirate: d.emirate,
       invoiceType: d.invoiceType,
       trn: d.invoiceType === "VAT" ? d.trn!.replace(/\D/g, "") : null,
@@ -98,9 +103,7 @@ export async function registerEnterprise(formData: FormData) {
       domain,
       companyCode: newCompanyCode(),
       plan: "STARTER",
-      branches: { create: { name: "Head office", type: "BILLING", emirate: d.emirate, address: d.address } },
-      costCenters: { create: { code: "GEN", name: "General", budgetFils: 0 } },
-      policy: { create: {} },
+      branches: { create: { name: "Main office", type: "BILLING", emirate: d.emirate, address: d.address } },
     },
   });
   await db.user.update({ where: { id: user.id }, data: { enterpriseId: enterprise.id, role: "OWNER", phone } });
@@ -122,7 +125,7 @@ export async function requestAccess(formData: FormData) {
 
   // A matching company code proves membership — join directly. Otherwise an admin must approve.
   if (code) {
-    await db.user.update({ where: { id: user.id }, data: { enterpriseId: enterprise!.id, role: "EMPLOYEE" } });
+    await db.user.update({ where: { id: user.id }, data: { enterpriseId: enterprise!.id, role: "AGENT" } });
     await audit({ id: user.id, name: user.name, enterpriseId: enterprise!.id }, "member.joined_with_code", "User", user.id);
     redirect("/app");
   }

@@ -4,21 +4,21 @@ import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import { requireMember } from "@/lib/auth";
 import { db } from "@/lib/db";
-import { parsePricing } from "@/lib/applications";
+import { parseNetPricing } from "@/lib/applications";
 import { audit } from "@/lib/audit";
 import { addDays } from "@/lib/dates";
 
-/** Consolidates all un-invoiced, non-cancelled applications into one monthly FTA tax invoice. */
+/** Safar → agency: consolidates all un-invoiced, confirmed applications at NET rates into one FTA tax invoice. */
 export async function generateInvoice() {
   const user = await requireMember("billing.view");
   const apps = await db.application.findMany({
-    where: { enterpriseId: user.enterpriseId, invoiceId: null, status: { notIn: ["DRAFT", "PENDING_APPROVAL", "CANCELLED"] } },
+    where: { enterpriseId: user.enterpriseId, invoiceId: null, status: { notIn: ["DRAFT", "CANCELLED"] } },
     orderBy: { createdAt: "asc" },
   });
   if (apps.length === 0) redirect("/app/billing?error=Nothing+to+invoice+yet");
   let taxable = 0, vat = 0, disb = 0;
   for (const a of apps) {
-    const p = parsePricing(a);
+    const p = parseNetPricing(a);
     taxable += p.taxableFils;
     vat += p.vatFils;
     disb += p.governmentFils;

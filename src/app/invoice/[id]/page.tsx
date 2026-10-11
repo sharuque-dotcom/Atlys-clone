@@ -5,7 +5,7 @@ import { country } from "@/lib/countries";
 import { fmtDate } from "@/lib/dates";
 import { formatAed } from "@/lib/money";
 import { getProduct } from "@/lib/catalog";
-import { parsePricing } from "@/lib/applications";
+import { parseNetPricing } from "@/lib/applications";
 import { BUNDLES, type Bundle } from "@/lib/types";
 import { PrintButton } from "@/components/PrintButton";
 
@@ -68,11 +68,11 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
           </thead>
           <tbody>
             {inv.applications.map((a) => {
-              const p = parsePricing(a);
+              const p = parseNetPricing(a);
               return (
                 <tr key={a.id}>
                   <td className="border p-2 font-mono">{a.ref}</td>
-                  <td className="border p-2">{getProduct(a.productId)?.name} — {a.traveler.firstName} {a.traveler.lastName} ({country(a.destination).en}) · {BUNDLES[a.bundle as Bundle].en}{p.courierFils ? " + courier" : ""}</td>
+                  <td className="border p-2">Visa processing (net) — {getProduct(a.productId)?.name} — {a.traveler.firstName} {a.traveler.lastName} ({country(a.destination).en}) · {BUNDLES[a.bundle as Bundle].en}{p.courierFils ? " + courier" : ""}</td>
                   <td className="border p-2 text-end tabular-nums">{(p.taxableFils / 100).toFixed(2)}</td>
                   <td className="border p-2 text-end tabular-nums">{(p.vatFils / 100).toFixed(2)}</td>
                   <td className="border p-2 text-end tabular-nums">{(p.governmentFils / 100).toFixed(2)}</td>

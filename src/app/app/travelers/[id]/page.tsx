@@ -22,16 +22,10 @@ export default async function TravelerPage({ params, searchParams }: { params: P
   const locale = await getLocale();
   const t = await db.traveler.findFirst({
     where: { id, ...travelerScope(user) },
-    include: { documents: { orderBy: { createdAt: "desc" } }, applications: { orderBy: { createdAt: "desc" } } },
+    include: { documents: { orderBy: { createdAt: "desc" } }, applications: { orderBy: { createdAt: "desc" } }, customer: { include: { members: true } } },
   });
   if (!t) notFound();
-  const manage = can(user.role, "travelers.manage");
-  const [branches, managers] = manage
-    ? await Promise.all([
-        db.branch.findMany({ where: { enterpriseId: user.enterpriseId } }),
-        db.user.findMany({ where: { enterpriseId: user.enterpriseId, role: { in: ["OWNER", "ADMIN", "APPROVER", "TRAVEL_MANAGER"] } } }),
-      ])
-    : [[], []];
+  const manage = can(user.role, "customers.manage");
   const now = new Date();
 
   const health = [
@@ -42,16 +36,16 @@ export default async function TravelerPage({ params, searchParams }: { params: P
 
   return (
     <div>
-      <div className="mb-2 text-sm text-slate-500">{manage && <><Link href="/app/travelers" className="hover:underline">Travelers</Link> / </>}{t.firstName} {t.lastName}</div>
+      <div className="mb-2 text-sm text-slate-500"><Link href="/app/customers" className="hover:underline">Customers</Link> / {t.customer && <><Link href={`/app/customers/${t.customer.id}`} className="hover:underline">{t.customer.name}</Link> / </>}{t.firstName} {t.lastName}</div>
       <div className="mb-6 flex flex-wrap items-center justify-between gap-4">
         <div className="flex items-center gap-4">
           <div className="flex size-14 items-center justify-center rounded-full bg-brand-100 text-xl font-semibold text-brand-800">{t.firstName[0]}{t.lastName[0]}</div>
           <div>
             <h1 className="text-2xl font-semibold tracking-tight">{t.firstName} {t.lastName}</h1>
-            <div className="text-sm text-slate-500">{country(t.nationality).flag} {country(t.nationality).en}{t.designation ? ` · ${t.designation}` : ""}{t.department ? ` · ${t.department}` : ""}</div>
+            <div className="text-sm text-slate-500">{country(t.nationality).flag} {country(t.nationality).en}{t.designation ? ` · ${t.designation}` : ""}{t.employerName ? ` at ${t.employerName}` : ""}</div>
           </div>
         </div>
-        {can(user.role, "applications.create") && <Link href={`/app/applications/new?traveler=${t.id}`} className="btn-primary">New application</Link>}
+        {can(user.role, "applications.create") && t.customer && <Link href={`/app/bookings/new?customer=${t.customer.id}&traveler=${t.id}`} className="btn-primary">New booking</Link>}
       </div>
       <Flash searchParams={sp} />
 
@@ -103,7 +97,7 @@ export default async function TravelerPage({ params, searchParams }: { params: P
             </form>
           </Section>
 
-          {manage && <Section title="Profile"><TravelerForm traveler={t} branches={branches} managers={managers} /></Section>}
+          {manage && t.customerId && <Section title="Profile"><TravelerForm customerId={t.customerId} traveler={t} household={t.customer?.members ?? []} /></Section>}
         </div>
 
         <Section title="Applications">

@@ -8,61 +8,60 @@ import { country } from "@/lib/countries";
 
 const FEATURES = [
   {
-    title: "Nationality-aware eligibility",
-    ar: "أهلية حسب الجنسية",
-    body: "Your payroll spans 40+ passports. Safar checks passport × UAE residence × destination × purpose and tells each traveler exactly what they need — or that they need nothing at all.",
+    title: "Quote a whole family in two minutes",
+    ar: "عرض سعر لعائلة كاملة في دقيقتين",
+    body: "Pick the household, the destination and the dates. Safar works out each person's visa from their passport and UAE residence — including Schengen child fees, sponsored spouses and kids travelling with one parent.",
   },
   {
-    title: "Real-time refusal-risk report",
-    ar: "تقرير مخاطر الرفض الفوري",
-    body: "Passport and residence validity, salary thresholds, appointment backlog in Dubai & Abu Dhabi, prior refusals — every factor scored with a concrete fix before anything is submitted.",
+    title: "Your price, your margin",
+    ar: "سعرك وهامش ربحك",
+    body: "Buy at Safar net rates, set your own fee per visa or a default markup, and see the margin on every quote. Discounts come out of your margin — never below cost.",
   },
   {
-    title: "NOCs & salary certificates in one click",
-    ar: "خطابات عدم الممانعة وشهادات الراتب بنقرة",
-    body: "Generated from HR data on your letterhead, bilingual, with leave dates and return-to-work confirmation. Plus cover letters, itineraries and verifiable reservations.",
+    title: "Send the quote on WhatsApp",
+    ar: "أرسل العرض عبر واتساب",
+    body: "One tap sends the price breakdown and a private link. The family sees exactly what each person needs and uploads documents from their phone — no more chasing photos on WhatsApp.",
   },
   {
-    title: "Document vault with expiry radar",
-    ar: "خزنة المستندات مع رادار الانتهاء",
-    body: "Passports read via MRZ, Emirates ID validated, residence visas tracked. You'll hear about a passport expiring in 5 months before it kills a Schengen trip.",
+    title: "Refusal-risk check before you submit",
+    ar: "فحص مخاطر الرفض قبل التقديم",
+    body: "Passport and residence validity, sponsor income against family size, appointment backlog in Dubai & Abu Dhabi, previous refusals — each with the fix, so fewer customers come back angry.",
   },
   {
-    title: "Approvals, policy & cost centres",
-    ar: "الموافقات والسياسات ومراكز التكلفة",
-    body: "Auto-approve under a threshold, route the rest to line managers, block destinations, charge every visa to a cost centre and watch budgets in real time.",
+    title: "Letters done for you",
+    ar: "الخطابات جاهزة",
+    body: "Cover letters, itineraries, family sponsorship letters, parental consent for minors, and NOC / salary-certificate drafts for the customer's employer — bilingual and print-ready.",
   },
   {
-    title: "FTA-compliant tax invoices in AED",
-    ar: "فواتير ضريبية متوافقة مع الهيئة الاتحادية للضرائب",
-    body: "5% VAT on service fees only, government fees shown as disbursements, your TRN and ours on every invoice, monthly consolidated billing on credit terms.",
+    title: "Our back office does the processing",
+    ar: "مكتبنا الخلفي يتولى المعالجة",
+    body: "Form filling, appointment hunting at VFS, TLScontact and BLS, passport pickup across all seven emirates, embassy follow-up. Your counter staff stay with customers.",
   },
   {
-    title: "WhatsApp-first updates",
-    ar: "تحديثات عبر واتساب أولاً",
-    body: "Travelers get status changes, appointment reminders and document requests on WhatsApp — in English or Arabic. A human specialist replies in under 2 minutes, 24/7.",
+    title: "Payments, balances & VAT invoices",
+    ar: "المدفوعات والأرصدة والفواتير الضريبية",
+    body: "Record cash, card, transfer or payment-link deposits. Customer tax invoices carry your TRN and branding; embassy fees are shown as disbursements. One monthly statement from Safar.",
   },
   {
-    title: "Passport pickup across all 7 emirates",
-    ar: "استلام الجوازات في الإمارات السبع",
-    body: "Insured courier collects and returns passports for sticker visas, with live tracking and chain-of-custody in the audit log.",
+    title: "Renewal leads on autopilot",
+    ar: "فرص التجديد تلقائيًا",
+    body: "Every passport and residence visa you've seen is tracked. When a customer's passport is about to expire, it shows up as a lead — before they walk into the agency next door.",
   },
   {
-    title: "HRMS sync & open API",
-    ar: "مزامنة أنظمة الموارد البشرية وواجهة برمجة مفتوحة",
-    body: "Pull employees from Bayzat, ZenHR, Darwinbox or SAP SuccessFactors. REST API with scoped keys and signed webhooks for your TMC or travel-booking tool.",
+    title: "Arabic, English, and your brand",
+    ar: "العربية والإنجليزية وعلامتك التجارية",
+    body: "Bilingual app with right-to-left layout. Customers see your agency's name and colour on the portal, quotes and invoices — not ours.",
   },
 ];
 
 const COMPARE = [
-  ["Eligibility by nationality + UAE residence", "Destination only", "Full matrix"],
-  ["UAE residence-visa & Emirates ID validity checks", "—", "Automatic"],
-  ["Employer NOC generation", "Manual", "1-click, bilingual"],
-  ["Invoicing", "GST (India)", "UAE VAT, TRN, disbursements"],
-  ["Approval workflows & cost centres", "—", "Built-in"],
+  ["Families with mixed ages & sponsorship", "One form per person", "One booking, per-person rules"],
+  ["Child embassy fees (e.g. Schengen <6 free)", "Manual", "Automatic"],
+  ["Customer document collection", "WhatsApp photos", "Branded upload portal"],
+  ["Agency margin visibility", "Spreadsheet", "Per quote, per month"],
+  ["UAE residence & Emirates ID checks", "—", "Automatic"],
+  ["Invoicing", "Generic", "UAE VAT, your TRN, disbursements"],
   ["Language", "English", "English + Arabic (RTL)"],
-  ["Data residency", "Outside UAE", "UAE region, PDPL-aligned"],
-  ["Notifications", "Email", "WhatsApp + email"],
 ];
 
 export default async function Landing() {
@@ -75,7 +74,7 @@ export default async function Landing() {
           <Logo />
           <nav className="flex items-center gap-2">
             <a href="#features" className="btn-ghost hidden sm:inline-flex">Features</a>
-            <a href="#pricing" className="btn-ghost hidden sm:inline-flex">Pricing</a>
+            <a href="#pricing" className="btn-ghost hidden sm:inline-flex">Net rates</a>
             <LocaleToggle locale={locale} />
             <Link href="/get-started" className="btn-secondary">{t("landing.signin", locale)}</Link>
           </nav>
@@ -86,7 +85,7 @@ export default async function Landing() {
         <div className="mx-auto grid max-w-6xl gap-10 px-4 py-16 md:grid-cols-2 md:py-24">
           <div>
             <span className="inline-flex items-center gap-2 rounded-full bg-brand-50 px-3 py-1 text-xs font-medium text-brand-700 ring-1 ring-brand-200">
-              🇦🇪 Built in & for the UAE
+              🇦🇪 Built for UAE travel agencies
             </span>
             <h1 className="mt-5 text-4xl font-semibold leading-tight tracking-tight text-slate-900 md:text-5xl">{t("landing.hero", locale)}</h1>
             <p className="mt-5 text-lg leading-relaxed text-slate-600">{t("landing.sub", locale)}</p>
@@ -95,24 +94,23 @@ export default async function Landing() {
               <Link href="/get-started?demo=1" className="btn-secondary px-5 py-3 text-base">Try the live demo</Link>
             </div>
             <dl className="mt-10 grid grid-cols-3 gap-6 text-sm">
-              <div><dt className="text-slate-500">Avg. prep time</dt><dd className="text-2xl font-semibold">7 min</dd></div>
+              <div><dt className="text-slate-500">Destinations</dt><dd className="text-2xl font-semibold">23</dd></div>
               <div><dt className="text-slate-500">Nationalities</dt><dd className="text-2xl font-semibold">75+</dd></div>
-              <div><dt className="text-slate-500">Support reply</dt><dd className="text-2xl font-semibold">&lt; 2 min</dd></div>
+              <div><dt className="text-slate-500">Setup fee</dt><dd className="text-2xl font-semibold">AED 0</dd></div>
             </dl>
           </div>
           <div className="card self-center p-5">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Paris sales offsite · 12–18 Dec</div>
-              <span className="text-xs text-slate-500">12 travelers · 6 nationalities</span>
+              <div className="text-sm font-semibold">Mehta family · Paris · 12–22 Dec</div>
+              <span className="text-xs text-slate-500">Quote BK-PARIS7</span>
             </div>
             <ul className="mt-4 divide-y divide-slate-100 text-sm">
               {[
-                ["Aisha Al Mansoori", "AE", "Visa-free", "green"],
-                ["Rohan Mehta", "IN", "Schengen C · Low risk", "green"],
-                ["Maria Santos", "PH", "Schengen C · Residence renews in 70d", "amber"],
-                ["Omar Khalid", "EG", "Schengen C · Salary note added", "green"],
-                ["James Carter", "GB", "Visa-free", "green"],
-                ["Bilal Ahmed", "PK", "Passport < 3 months — renew first", "red"],
+                ["Rohan · father", "IN", "Schengen C · AED 947.75", "green"],
+                ["Priya · mother (sponsored)", "IN", "Schengen C · AED 947.75", "green"],
+                ["Aarav · 9 yrs", "IN", "Child embassy fee · AED 762.75", "green"],
+                ["Anaya · 4 yrs", "IN", "No embassy fee · AED 582.75", "green"],
+                ["Grandmother", "IN", "Passport < 3 months — renew first", "red"],
               ].map(([n, c, s, tone]) => (
                 <li key={n} className="flex items-center justify-between py-2.5">
                   <span className="flex items-center gap-2"><span className="text-lg">{country(c).flag}</span>{n}</span>
@@ -121,7 +119,7 @@ export default async function Landing() {
               ))}
             </ul>
             <div className="mt-4 rounded-lg bg-brand-50 p-3 text-xs text-brand-900">
-              NOCs, cover letters, itineraries and insurance generated for 4 applicants. TLScontact Dubai slots held for 9 Nov.
+              Family discount AED 100 · total AED 3,136 · your margin AED 383.60. Sent on WhatsApp with the upload link.
             </div>
           </div>
         </div>
@@ -141,8 +139,8 @@ export default async function Landing() {
       </section>
 
       <section id="features" className="mx-auto max-w-6xl px-4 py-20">
-        <h2 className="text-3xl font-semibold tracking-tight">Everything a UAE travel desk actually needs</h2>
-        <p className="mt-2 max-w-2xl text-slate-600">Generic visa tools stop at the form. Safar handles the UAE-specific work around it: residence validity, NOCs, VAT invoices and passport courier.</p>
+        <h2 className="text-3xl font-semibold tracking-tight">Everything your visa counter needs</h2>
+        <p className="mt-2 max-w-2xl text-slate-600">Walk-ins, WhatsApp enquiries and repeat families. Safar handles the visa work around your customer relationship, so you sell more and chase less.</p>
         <div className="mt-10 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {FEATURES.map((f) => (
             <div key={f.title} className="card p-5">
@@ -172,13 +170,13 @@ export default async function Landing() {
       </section>
 
       <section id="pricing" className="mx-auto max-w-6xl px-4 py-20">
-        <h2 className="text-3xl font-semibold tracking-tight">Transparent, per-visa pricing</h2>
-        <p className="mt-2 text-slate-600">No setup fee, no minimum volume. Government fees passed through at cost. All prices in AED, excl. 5% VAT on service fees.</p>
+        <h2 className="text-3xl font-semibold tracking-tight">Net rates that get better as you grow</h2>
+        <p className="mt-2 text-slate-600">No setup fee, no minimum volume. You pay Safar a net service fee per visa and keep whatever you charge on top. Embassy fees pass through at cost.</p>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
           {[
-            ["Starter", "Pay as you go", ["Full platform", "Standard service fees", "Card or bank transfer"]],
-            ["Growth", "10% off service fees", ["Approval workflows", "Cost centres & budgets", "Monthly invoicing (30 days)"]],
-            ["Enterprise", "20% off service fees", ["HRMS sync, SSO & UAE PASS", "API & webhooks", "Dedicated account manager & SLA"]],
+            ["Starter", "List net rates", ["Unlimited staff & customers", "Branded customer portal", "Weekly statement"]],
+            ["Growth", "10% off net rates", ["From 30 visas / month", "Monthly statement, 30-day terms", "Priority back-office queue"]],
+            ["Network", "20% off net rates", ["Multi-branch agencies", "API, webhooks & website widget", "Dedicated account manager"]],
           ].map(([name, price, items]) => (
             <div key={name as string} className="card p-6">
               <div className="text-sm font-semibold text-brand-700">{name}</div>
@@ -196,11 +194,11 @@ export default async function Landing() {
           <h2 className="text-3xl font-semibold tracking-tight">Frequently asked</h2>
           <div className="mt-8 space-y-3">
             {[
-              ["Do you issue UAE VAT tax invoices?", "Yes. Every invoice carries your TRN and ours, VAT at 5% on service fees, and government fees itemised as disbursements so your finance team can reclaim input VAT correctly."],
-              ["Where is our data stored?", "In a UAE cloud region, encrypted at rest. Access is role-based and every view/download is written to an immutable audit log. We align with the UAE PDPL (Federal Decree-Law 45/2021)."],
-              ["Can you collect passports from our office?", "Yes, across all seven emirates. Insured pickup and return for sticker visas (Schengen, UK, US, Canada, China, Japan)."],
-              ["Our team holds many nationalities. Does that matter?", "That's what Safar is built for. Requirements are computed per passport and per UAE-residence status — an Emirati, an Indian and a Briton going to the same conference get three different checklists."],
-              ["Do you handle visas for guests visiting the UAE?", "Inbound UAE visit visas for clients and new joiners are on the roadmap; today our concierge handles them manually."],
+              ["Who actually processes the visa?", "Safar's back office in Dubai: forms, appointments, biometrics coordination, passport courier and embassy follow-up. You own the customer, set the price and get paid."],
+              ["Can my customers see Safar's name?", "No. Quotes, the customer portal and invoices carry your agency's name, colour and TRN."],
+              ["How do families send documents?", "They open a private link from your WhatsApp message and upload straight from their phone camera. Everything lands in the right person's file."],
+              ["What about children and dependent spouses?", "Each traveler's checklist follows their age, sponsor and relationship: birth certificates, attested marriage certificates, sponsor documents and parental consent are all handled."],
+              ["Where is customer data stored?", "In a UAE cloud region, encrypted at rest. Every view and download is logged for PDPL accountability."],
             ].map(([q, a]) => (
               <details key={q} className="card group p-4">
                 <summary className="cursor-pointer list-none font-medium">{q}</summary>

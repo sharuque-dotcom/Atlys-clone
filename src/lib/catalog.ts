@@ -36,6 +36,8 @@ export type VisaProduct = {
   /** Applying with UAE residence is required (e.g. GCC-resident eVisas) */
   requiresUaeResidence?: boolean;
   extraDocs?: DocumentRequirementKey[];
+  /** Reduced government fees for children (age at departure) */
+  childGovtFeeAed?: { under6: number; under12: number };
 };
 
 export type Destination = {
@@ -67,7 +69,14 @@ export type DocumentRequirementKey =
   | "ITINERARY"
   | "OLD_PASSPORTS"
   | "DS160_CONFIRMATION"
-  | "CONFERENCE_REGISTRATION";
+  | "CONFERENCE_REGISTRATION"
+  | "BIRTH_CERTIFICATE"
+  | "MARRIAGE_CERTIFICATE"
+  | "SPONSOR_DOCUMENTS"
+  | "SPONSORSHIP_LETTER"
+  | "PARENTAL_CONSENT"
+  | "SCHOOL_LETTER"
+  | "PENSION_PROOF";
 
 const schengenBase = {
   kind: "STICKER" as const,
@@ -76,6 +85,7 @@ const schengenBase = {
   validityDays: 180,
   maxStayDays: 90,
   govtFeeAed: 365,
+  childGovtFeeAed: { under6: 0, under12: 180 },
   biometrics: true,
   passportSubmission: true,
   passportValidityBeyondReturnDays: 90,
@@ -633,10 +643,10 @@ export const DOCUMENT_LABELS: Record<DocumentRequirementKey, { en: string; ar: s
   PHOTO: { en: "Passport photo", ar: "صورة شخصية", hint: "White background, 35×45 mm (Schengen/UK) or 51×51 mm (US)." },
   EMIRATES_ID: { en: "Emirates ID (front & back)", ar: "الهوية الإماراتية (الوجهان)", hint: "Must be valid for the full trip." },
   RESIDENCE_VISA: { en: "UAE residence visa", ar: "تأشيرة الإقامة الإماراتية", hint: "e-Visa printout or passport sticker page." },
-  NOC: { en: "Employer NOC letter", ar: "خطاب عدم ممانعة من جهة العمل", hint: "On letterhead: designation, salary, leave dates, return-to-work confirmation. Auto-generated." },
-  SALARY_CERTIFICATE: { en: "Salary certificate", ar: "شهادة راتب", hint: "Issued within the last 30 days. Auto-generated from HR data." },
+  NOC: { en: "Employer NOC letter", ar: "خطاب عدم ممانعة من جهة العمل", hint: "Issued by the employer on letterhead: designation, salary, leave dates, return to work. We draft it — the employer signs and stamps." },
+  SALARY_CERTIFICATE: { en: "Salary certificate", ar: "شهادة راتب", hint: "Issued by the employer within the last 30 days. We draft it — the employer signs and stamps." },
   BANK_STATEMENT: { en: "Bank statement (last 6 months)", ar: "كشف حساب بنكي (آخر 6 أشهر)", hint: "Bank-stamped or e-statement. Salary credits should be visible." },
-  TRADE_LICENSE: { en: "Company trade licence", ar: "الرخصة التجارية للشركة", hint: "Pulled from the company document vault." },
+  TRADE_LICENSE: { en: "Company trade licence", ar: "الرخصة التجارية للشركة", hint: "Valid trade licence (and memorandum showing ownership) for business owners." },
   INVITATION_LETTER: { en: "Invitation letter from host", ar: "خطاب دعوة من الجهة المضيفة", hint: "From the company/organiser abroad, with dates and purpose." },
   COVER_LETTER: { en: "Cover letter", ar: "خطاب تغطية", hint: "Auto-generated from trip details." },
   FLIGHT_RESERVATION: { en: "Flight reservation", ar: "حجز طيران", hint: "Verifiable reservation — no need to buy the ticket before the visa." },
@@ -646,4 +656,11 @@ export const DOCUMENT_LABELS: Record<DocumentRequirementKey, { en: string; ar: s
   OLD_PASSPORTS: { en: "Previous passports", ar: "جوازات السفر السابقة", hint: "With prior visas, if any." },
   DS160_CONFIRMATION: { en: "DS-160 confirmation", ar: "تأكيد نموذج DS-160", hint: "Prepared by our team from your profile." },
   CONFERENCE_REGISTRATION: { en: "Event registration", ar: "تسجيل الفعالية", hint: "Confirmation of registration for the event." },
+  BIRTH_CERTIFICATE: { en: "Birth certificate", ar: "شهادة الميلاد", hint: "Showing both parents' names. Foreign certificates must be attested by MOFA UAE." },
+  MARRIAGE_CERTIFICATE: { en: "Marriage certificate", ar: "عقد الزواج", hint: "Attested; proves the relationship to the sponsoring spouse." },
+  SPONSOR_DOCUMENTS: { en: "Sponsor's passport, visa & Emirates ID", ar: "جواز سفر الكفيل وتأشيرته وهويته", hint: "Copies of the family member who sponsors this traveler." },
+  SPONSORSHIP_LETTER: { en: "Family sponsorship letter", ar: "خطاب كفالة عائلية", hint: "Main applicant confirms they cover the trip. Auto-generated." },
+  PARENTAL_CONSENT: { en: "Parental consent letter", ar: "خطاب موافقة الوالدين", hint: "Required when a minor travels without both parents — signed by the absent parent. Auto-drafted." },
+  SCHOOL_LETTER: { en: "School / university letter", ar: "خطاب المدرسة / الجامعة", hint: "Confirms enrolment and approved leave for the travel dates." },
+  PENSION_PROOF: { en: "Pension or income proof", ar: "إثبات المعاش أو الدخل", hint: "Pension statement, rental income or investment statements." },
 };

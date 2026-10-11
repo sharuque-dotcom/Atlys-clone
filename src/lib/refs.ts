@@ -9,3 +9,6 @@ export function randomCode(len: number) {
 
 export const newApplicationRef = () => `SF-${randomCode(6)}`;
 export const newCompanyCode = () => randomCode(8);
+export const newBookingRef = () => `BK-${randomCode(6)}`;
+/** Unguessable token for the customer self-service portal (≈192 bits). */
+export const newPortalToken = () => randomBytes(24).toString("base64url");

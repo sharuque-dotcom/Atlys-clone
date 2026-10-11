@@ -4,7 +4,9 @@ import { db } from "@/lib/db";
 import { getLocale } from "@/lib/locale";
 import { fmtDate } from "@/lib/dates";
 import { formatAed } from "@/lib/money";
-import { parsePricing } from "@/lib/applications";
+import { parseNetPricing, parsePricing } from "@/lib/applications";
+import { bookingTotals } from "@/lib/pricing";
+import { PAYMENT_METHODS } from "@/lib/types";
 import { Badge, Empty, Flash, PageHeader, Section, Stat } from "@/components/ui";
 import { generateInvoice, markPaid } from "./actions";
 
@@ -12,37 +14,43 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
   const sp = await searchParams;
   const user = await requireMember("billing.view");
   const locale = await getLocale();
+  const E = user.enterpriseId;
   const now = new Date();
-  const yearStart = new Date(Date.UTC(now.getUTCFullYear(), 0, 1));
-  const [invoices, unbilled, costCenters, ytd] = await Promise.all([
-    db.invoice.findMany({ where: { enterpriseId: user.enterpriseId }, orderBy: { issuedAt: "desc" }, include: { _count: { select: { applications: true } } } }),
-    db.application.findMany({ where: { enterpriseId: user.enterpriseId, invoiceId: null, status: { notIn: ["DRAFT", "PENDING_APPROVAL", "CANCELLED"] } } }),
-    db.costCenter.findMany({ where: { enterpriseId: user.enterpriseId }, include: { applications: { where: { status: { not: "CANCELLED" }, createdAt: { gte: yearStart } } } } }),
-    db.application.findMany({ where: { enterpriseId: user.enterpriseId, status: { not: "CANCELLED" }, createdAt: { gte: yearStart } } }),
+  const monthStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1));
+  const [invoices, unbilled, monthBookings, monthPayments] = await Promise.all([
+    db.invoice.findMany({ where: { enterpriseId: E }, orderBy: { issuedAt: "desc" }, include: { _count: { select: { applications: true } } } }),
+    db.application.findMany({ where: { enterpriseId: E, invoiceId: null, status: { notIn: ["DRAFT", "CANCELLED"] } } }),
+    db.booking.findMany({ where: { enterpriseId: E, createdAt: { gte: monthStart }, status: { notIn: ["QUOTED", "CANCELLED"] } }, include: { applications: true } }),
+    db.payment.findMany({ where: { enterpriseId: E, createdAt: { gte: monthStart } } }),
   ]);
-  const sum = (xs: { pricing: string }[], k: "totalFils" | "vatFils") => xs.reduce((s, a) => s + parsePricing(a)[k], 0);
+  const unbilledNet = unbilled.reduce((s, a) => s + parseNetPricing(a).totalFils, 0);
+  const sales = monthBookings.reduce((s, b) => s + b.sellTotalFils, 0);
+  const vatReg = user.enterprise.invoiceType === "VAT";
+  const salesVat = monthBookings.reduce((s, b) => s + bookingTotals(b.applications.filter((a) => a.status !== "CANCELLED").map(parsePricing), b.discountFils, vatReg).vatFils, 0);
+  const cost = monthBookings.reduce((s, b) => s + b.applications.filter((a) => a.status !== "CANCELLED").reduce((x, a) => x + parseNetPricing(a).totalFils, 0), 0);
+  const inputVat = monthBookings.reduce((s, b) => s + b.applications.filter((a) => a.status !== "CANCELLED").reduce((x, a) => x + parseNetPricing(a).vatFils, 0), 0);
   const outstanding = invoices.filter((i) => i.status !== "PAID").reduce((s, i) => s + i.totalFils, 0);
+  const byMethod = Object.entries(PAYMENT_METHODS).map(([k, label]) => ({ label, total: monthPayments.filter((p) => p.method === k).reduce((s, p) => s + p.amountFils, 0) }));
 
   return (
     <div>
-      <PageHeader title="Billing & VAT" subtitle={`${user.enterprise.legalName}${user.enterprise.trn ? ` · TRN ${user.enterprise.trn}` : " · non-VAT invoicing"}`} actions={<form action={generateInvoice}><button className="btn-primary">Issue invoice for unbilled ({unbilled.length})</button></form>} />
+      <PageHeader title="Statements & VAT" subtitle={`${user.enterprise.legalName}${user.enterprise.trn ? ` · TRN ${user.enterprise.trn}` : " · not VAT-registered"}`} actions={<form action={generateInvoice}><button className="btn-primary">Close period — issue Safar statement ({unbilled.length})</button></form>} />
       <Flash searchParams={sp} />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Stat label="Spend year-to-date" value={formatAed(sum(ytd, "totalFils"), locale)} />
-        <Stat label="Input VAT reclaimable (YTD)" value={formatAed(sum(ytd, "vatFils"), locale)} hint="5% on service fees" />
-        <Stat label="Unbilled" value={formatAed(sum(unbilled, "totalFils"), locale)} hint={`${unbilled.length} applications`} />
-        <Stat label="Outstanding" value={formatAed(outstanding, locale)} hint={user.enterprise.plan === "STARTER" ? "7-day terms" : "30-day terms"} />
+        <Stat label="Sales this month" value={formatAed(sales, locale)} hint={`margin ${formatAed(sales - cost, locale)}`} />
+        <Stat label="Output VAT (this month)" value={formatAed(salesVat, locale)} hint={`input VAT from Safar ${formatAed(inputVat, locale)}`} />
+        <Stat label="Owed to Safar (unbilled)" value={formatAed(unbilledNet, locale)} hint={`${unbilled.length} visas`} />
+        <Stat label="Safar statements unpaid" value={formatAed(outstanding, locale)} hint={user.enterprise.plan === "STARTER" ? "7-day terms" : "30-day terms"} />
       </div>
-
-      <div className="grid gap-6 lg:grid-cols-[1fr_340px]">
-        <Section title="Tax invoices">
-          {invoices.length === 0 ? <Empty title="No invoices yet" /> : (
+      <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
+        <Section title="Safar statements (your cost, net rates)">
+          {invoices.length === 0 ? <Empty title="No statements yet" /> : (
             <table className="w-full">
               <thead className="border-b border-slate-100"><tr><th className="th">Number</th><th className="th">Issued</th><th className="th">Due</th><th className="th text-end">Total</th><th className="th">Status</th><th className="th" /></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {invoices.map((i) => (
                   <tr key={i.id}>
-                    <td className="td"><Link href={`/invoice/${i.id}`} target="_blank" className="font-mono text-xs text-brand-700 hover:underline">{i.number}</Link><div className="text-xs text-slate-500">{i._count.applications} applications</div></td>
+                    <td className="td"><Link href={`/invoice/${i.id}`} target="_blank" className="font-mono text-xs text-brand-700 hover:underline">{i.number}</Link><div className="text-xs text-slate-500">{i._count.applications} visas</div></td>
                     <td className="td text-xs">{fmtDate(i.issuedAt, locale)}</td>
                     <td className="td text-xs">{fmtDate(i.dueAt, locale)}</td>
                     <td className="td text-end tabular-nums">{formatAed(i.totalFils, locale)}</td>
@@ -54,21 +62,10 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
             </table>
           )}
         </Section>
-        <Section title="Cost centres (YTD vs budget)">
-          <ul className="space-y-4 p-4">
-            {costCenters.map((c) => {
-              const spent = sum(c.applications, "totalFils");
-              const pct = c.budgetFils ? Math.min(100, Math.round((spent / c.budgetFils) * 100)) : 0;
-              return (
-                <li key={c.id}>
-                  <div className="flex justify-between text-sm"><span className="font-medium">{c.code} · {c.name}</span><span className="tabular-nums">{formatAed(spent, locale)}</span></div>
-                  {c.budgetFils > 0 && <>
-                    <div className="mt-1 h-2 overflow-hidden rounded-full bg-slate-100"><div className={`h-full ${pct > 90 ? "bg-rose-500" : pct > 70 ? "bg-amber-500" : "bg-brand-500"}`} style={{ width: `${pct}%` }} /></div>
-                    <div className="mt-0.5 text-xs text-slate-500">{pct}% of {formatAed(c.budgetFils, locale)}</div>
-                  </>}
-                </li>
-              );
-            })}
+        <Section title="Collected from customers (this month)">
+          <ul className="space-y-2 p-4 text-sm">
+            {byMethod.map((m) => <li key={m.label} className="flex justify-between"><span className="text-slate-500">{m.label}</span><span className="tabular-nums">{formatAed(m.total, locale)}</span></li>)}
+            <li className="flex justify-between border-t border-slate-100 pt-2 font-semibold"><span>Total</span><span className="tabular-nums">{formatAed(monthPayments.reduce((s, p) => s + p.amountFils, 0), locale)}</span></li>
           </ul>
         </Section>
       </div>

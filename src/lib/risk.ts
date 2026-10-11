@@ -1,5 +1,5 @@
 // Real-time refusal-risk report. Every factor is explainable and comes with a concrete fix,
-// so travel managers can strengthen the file BEFORE it reaches the embassy.
+// so agents can strengthen the file BEFORE it reaches the embassy.
 
 import type { VisaProduct } from "./catalog";
 import { addWorkingDays, daysBetween } from "./dates";
@@ -21,6 +21,13 @@ export type RiskInput = {
   missingRequiredDocs: number;
   priority: boolean;
   today?: Date;
+  /** Retail/family context */
+  employmentType?: string;
+  age?: number | null;
+  /** Monthly income of the family member sponsoring a dependent */
+  sponsorSalaryAed?: number | null;
+  /** Number of people on the same booking funded by the same household */
+  familySize?: number;
 };
 
 export type RiskFactor = {
@@ -97,17 +104,28 @@ export function assessRisk(input: RiskInput): RiskReport {
     factors.push({ id: "lead", label: `Only ${daysToTravel} days to travel (recommended ${p.leadTimeDays})`, impact: 15, severity: "warn", fix: "Apply today — appointment slots in Dubai/Abu Dhabi fill up 2–4 weeks ahead in peak season." });
   }
 
-  // Financial standing
-  if (p.recommendedMinSalaryAed > 0) {
-    if (input.monthlySalaryAed == null) {
-      factors.push({ id: "salary-missing", label: "Salary not on file", impact: 10, severity: "info", fix: "Sync from HRMS or add it to the traveler profile so the NOC & salary certificate can be generated." });
-    } else if (input.monthlySalaryAed < p.recommendedMinSalaryAed) {
-      factors.push({ id: "salary", label: `Salary below typical approval threshold (AED ${p.recommendedMinSalaryAed.toLocaleString()})`, impact: 20, severity: "warn", fix: "Add a sponsorship line in the NOC stating the company covers all trip costs." });
+  // Financial standing — dependents and minors are assessed on their sponsor's income,
+  // and the household needs proportionally more funds when the whole family travels.
+  const dependent = (input.age != null && input.age < 18) || ["DEPENDENT", "STUDENT", "UNEMPLOYED"].includes(input.employmentType ?? "");
+  const income = dependent ? input.sponsorSalaryAed ?? null : input.monthlySalaryAed;
+  const familySize = Math.max(1, input.familySize ?? 1);
+  if (p.recommendedMinSalaryAed > 0 && input.employmentType !== "SELF_EMPLOYED" && input.employmentType !== "RETIRED") {
+    const threshold = Math.round(p.recommendedMinSalaryAed * (1 + 0.3 * (familySize - 1)));
+    if (income == null) {
+      factors.push({ id: "salary-missing", label: dependent ? "Sponsor's income not on file" : "Salary not on file", impact: 10, severity: "info", fix: dependent ? "Link this traveler to the sponsoring family member and record their salary." : "Add the monthly salary so the NOC and salary certificate drafts are complete." });
+    } else if (income < threshold) {
+      factors.push({
+        id: "salary",
+        label: `${dependent ? "Sponsor's income" : "Salary"} below typical threshold for ${familySize > 1 ? `a family of ${familySize}` : "this visa"} (AED ${threshold.toLocaleString()})`,
+        impact: 20,
+        severity: "warn",
+        fix: "Show a higher closing bank balance (≈ AED 1,000 per person per travel day), fixed deposits, or a second earning family member as co-sponsor.",
+      });
     }
   }
 
-  if (input.joinedAt && daysBetween(input.joinedAt, today) < 90 && p.kind === "STICKER") {
-    factors.push({ id: "tenure", label: "Employee joined less than 3 months ago", impact: 10, severity: "info", fix: "Include the offer letter / contract in the file to show ties to the UAE." });
+  if ((input.employmentType ?? "EMPLOYED") === "EMPLOYED" && input.joinedAt && daysBetween(input.joinedAt, today) < 90 && p.kind === "STICKER") {
+    factors.push({ id: "tenure", label: "Started current job less than 3 months ago", impact: 10, severity: "info", fix: "Include the employment contract / offer letter to show ties to the UAE." });
   }
 
   if (input.priorRejections > 0) {
@@ -115,7 +133,7 @@ export function assessRisk(input: RiskInput): RiskReport {
   }
 
   const strongHistory = input.travelHistory.some((c) => ["US", "GB", "CA", "AU", "JP", ...STRONG_PASSPORTS].includes(c));
-  if (p.kind === "STICKER" && !strongHistory && !GCC.includes(input.nationality)) {
+  if (p.kind === "STICKER" && !strongHistory && !GCC.includes(input.nationality) && !(input.age != null && input.age < 18)) {
     factors.push({ id: "history", label: "No prior travel to US/UK/Schengen-type destinations", impact: 10, severity: "info", fix: "List any past visas (even expired) — they materially improve approval odds." });
   }
 

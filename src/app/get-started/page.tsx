@@ -29,7 +29,7 @@ export default async function GetStarted({ searchParams }: { searchParams: SP })
             <h1 className="text-center text-xl font-semibold">Sign in to Safar</h1>
             <form action={signIn} className="mt-6 space-y-4">
               <input type="hidden" name="next" value={sp.redirect ?? "/app"} />
-              <div><label className="label" htmlFor="email">Work email</label><input id="email" name="email" type="email" required className="input" placeholder="name@company.ae" autoComplete="email" /></div>
+              <div><label className="label" htmlFor="email">Work email</label><input id="email" name="email" type="email" required className="input" placeholder="name@youragency.ae" autoComplete="email" /></div>
               <div><label className="label" htmlFor="password">Password</label><input id="password" name="password" type="password" required className="input" autoComplete="current-password" /></div>
               <button className="btn-primary w-full py-2.5">Sign in</button>
             </form>

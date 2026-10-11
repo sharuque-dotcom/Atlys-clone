@@ -25,7 +25,7 @@ export default async function Applications({ searchParams }: { searchParams: SP 
   if (sp.q) {
     where.AND = [{ OR: [{ ref: { contains: sp.q.toUpperCase() } }, { traveler: { firstName: { contains: sp.q } } }, { traveler: { lastName: { contains: sp.q } } }] }];
   }
-  const apps = await db.application.findMany({ where, include: { traveler: true, costCenter: true }, orderBy: { createdAt: "desc" }, take: 200 });
+  const apps = await db.application.findMany({ where, include: { traveler: true, booking: { include: { customer: true } } }, orderBy: { createdAt: "desc" }, take: 200 });
   const destinations = await db.application.findMany({ where: applicationScope(user), distinct: ["destination"], select: { destination: true } });
 
   return (
@@ -63,7 +63,7 @@ export default async function Applications({ searchParams }: { searchParams: SP 
               {apps.map((a) => (
                 <tr key={a.id} className="hover:bg-slate-50">
                   <td className="td"><Link href={`/app/applications/${a.id}`} className="font-mono text-xs font-medium text-brand-700 hover:underline">{a.ref}</Link></td>
-                  <td className="td"><div className="font-medium">{a.traveler.firstName} {a.traveler.lastName}</div><div className="text-xs text-slate-500">{country(a.traveler.nationality).flag} {country(a.traveler.nationality).en}{a.costCenter ? ` · ${a.costCenter.code}` : ""}</div></td>
+                  <td className="td"><div className="font-medium">{a.traveler.firstName} {a.traveler.lastName}</div><div className="text-xs text-slate-500">{country(a.traveler.nationality).flag} {country(a.traveler.nationality).en}{a.booking ? ` · ${a.booking.customer.name}` : ""}</div></td>
                   <td className="td"><div>{country(a.destination).flag} {country(a.destination).en}</div><div className="text-xs text-slate-500">{getProduct(a.productId)?.name ?? a.productId}</div></td>
                   <td className="td text-xs">{fmtDate(a.travelStart, locale)}<br />{fmtDate(a.travelEnd, locale)}</td>
                   <td className="td"><RiskBadge level={parseRisk(a)?.level} /></td>

@@ -11,13 +11,13 @@ import { NavLink } from "@/components/NavLink";
 
 const NAV: { href: string; key: DictKey; perm?: Permission; icon: string }[] = [
   { href: "/app", key: "nav.dashboard", icon: "◧" },
-  { href: "/app/applications", key: "nav.applications", icon: "▤" },
-  { href: "/app/applications/new", key: "nav.new", perm: "applications.create", icon: "＋" },
-  { href: "/app/approvals", key: "nav.approvals", perm: "applications.approve", icon: "✓" },
-  { href: "/app/travelers", key: "nav.travelers", perm: "travelers.manage", icon: "☺" },
-  { href: "/app/trips", key: "nav.trips", perm: "travelers.manage", icon: "✈" },
+  { href: "/app/bookings/new", key: "nav.new", perm: "applications.create", icon: "＋" },
+  { href: "/app/bookings", key: "nav.bookings", icon: "▤" },
+  { href: "/app/customers", key: "nav.customers", perm: "customers.manage", icon: "☺" },
+  { href: "/app/applications", key: "nav.applications", icon: "✈" },
   { href: "/app/checker", key: "nav.checker", icon: "?" },
   { href: "/app/concierge", key: "nav.concierge", icon: "✆" },
+  { href: "/app/pricing", key: "nav.pricing", perm: "pricing.manage", icon: "%" },
   { href: "/app/billing", key: "nav.billing", perm: "billing.view", icon: "د.إ" },
   { href: "/app/organization", key: "nav.organization", perm: "org.manage", icon: "⌂" },
   { href: "/app/integrations", key: "nav.integrations", perm: "integrations.manage", icon: "⇄" },
@@ -27,9 +27,7 @@ const NAV: { href: string; key: DictKey; perm?: Permission; icon: string }[] = [
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireMember();
   const locale = await getLocale();
-  const pendingApprovals = can(user.role, "applications.approve")
-    ? await db.application.count({ where: { enterpriseId: user.enterpriseId, status: "PENDING_APPROVAL" } })
-    : 0;
+  const docsPending = await db.application.count({ where: { enterpriseId: user.enterpriseId, status: "DOCS_PENDING" } });
   const pendingAccess = can(user.role, "org.manage")
     ? await db.accessRequest.count({ where: { enterpriseId: user.enterpriseId, status: "PENDING" } })
     : 0;
@@ -40,14 +38,14 @@ export default async function AppLayout({ children }: { children: React.ReactNod
         <div className="px-4 py-4"><Link href="/app"><Logo /></Link></div>
         <div className="mx-3 mb-3 rounded-lg bg-slate-50 px-3 py-2">
           <div className="truncate text-sm font-medium">{user.enterprise.name}</div>
-          <div className="text-xs text-slate-500">{user.enterprise.plan.toLowerCase()} plan</div>
+          <div className="text-xs text-slate-500">Travel agency · {user.enterprise.plan.toLowerCase()} plan</div>
         </div>
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-2">
           {NAV.filter((n) => !n.perm || can(user.role, n.perm)).map((n) => (
-            <NavLink key={n.href} href={n.href} exact={n.href === "/app" || n.href === "/app/applications"}>
+            <NavLink key={n.href} href={n.href} exact={n.href === "/app" || n.href === "/app/bookings"}>
               <span className="w-5 text-center text-slate-400">{n.icon}</span>
               <span className="flex-1">{t(n.key, locale)}</span>
-              {n.href === "/app/approvals" && pendingApprovals > 0 && <span className="rounded-full bg-amber-500 px-1.5 text-xs text-white">{pendingApprovals}</span>}
+              {n.href === "/app/applications" && docsPending > 0 && <span className="rounded-full bg-amber-500 px-1.5 text-xs text-white">{docsPending}</span>}
               {n.href === "/app/organization" && pendingAccess > 0 && <span className="rounded-full bg-amber-500 px-1.5 text-xs text-white">{pendingAccess}</span>}
             </NavLink>
           ))}

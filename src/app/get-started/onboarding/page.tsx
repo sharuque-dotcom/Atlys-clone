@@ -19,11 +19,11 @@ export default async function Onboarding({ searchParams }: { searchParams: SP })
     return (
       <Shell>
         <div className="text-center">
-          <div className="text-xs font-medium uppercase tracking-wide text-brand-700">Company code generated</div>
+          <div className="text-xs font-medium uppercase tracking-wide text-brand-700">Agency code generated</div>
           <div className="mt-4 select-all rounded-xl bg-slate-900 py-5 font-mono text-3xl tracking-[0.3em] text-white">{user.enterprise.companyCode}</div>
-          <p className="mt-4 text-sm text-slate-600">Share this code with your team. They&apos;ll use it to join <b>{user.enterprise.name}</b> on Safar.</p>
-          <p className="mt-1 text-xs text-slate-500">You can find it again any time under Organization.</p>
-          <Link href="/app" className="btn-primary mt-6 w-full py-2.5">Go to dashboard</Link>
+          <p className="mt-4 text-sm text-slate-600">Share this code with your staff. They&apos;ll use it to join <b>{user.enterprise.name}</b> on Safar.</p>
+          <p className="mt-1 text-xs text-slate-500">You can find it again any time under Agency &amp; team.</p>
+          <Link href="/app/pricing" className="btn-primary mt-6 w-full py-2.5">Next: set your prices</Link>
         </div>
       </Shell>
     );
@@ -59,11 +59,11 @@ export default async function Onboarding({ searchParams }: { searchParams: SP })
     return (
       <Shell wide>
         <div className="text-xs font-medium text-slate-500">Step 2 of 2</div>
-        <h1 className="mt-1 text-xl font-semibold">Register your company</h1>
+        <h1 className="mt-1 text-xl font-semibold">Register your travel agency</h1>
         {sp.error && <div className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">{sp.error}</div>}
         <form action={registerEnterprise} className="mt-6 grid gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2"><label className="label">Company name</label><input name="name" required className="input" placeholder="Falcon Logistics" /></div>
-          <div className="sm:col-span-2"><label className="label">Legal name (as on trade licence)</label><input name="legalName" required className="input" placeholder="Falcon Logistics L.L.C" /></div>
+          <div className="sm:col-span-2"><label className="label">Agency name (shown to customers)</label><input name="name" required className="input" placeholder="Oasis Travel & Tours" /></div>
+          <div className="sm:col-span-2"><label className="label">Legal name (as on trade licence)</label><input name="legalName" required className="input" placeholder="Oasis Travel & Tourism L.L.C" /></div>
           <div><label className="label">Trade licence no.</label><input name="tradeLicenseNo" required className="input" /></div>
           <div><label className="label">Licensing authority</label>
             <select name="licenseAuthority" className="input">
@@ -71,13 +71,12 @@ export default async function Onboarding({ searchParams }: { searchParams: SP })
             </select></div>
           <div><label className="label">Emirate</label>
             <select name="emirate" className="input" defaultValue="DXB">{EMIRATES.map((e) => <option key={e.code} value={e.code}>{e.en}</option>)}</select></div>
-          <div><label className="label">Company size</label>
-            <select name="size" className="input">{["1–50", "51–200", "201–1,000", "1,000+"].map((s) => <option key={s}>{s}</option>)}</select></div>
+          <div><label className="label">Tourism / travel agency licence no.</label><input name="tourismLicenseNo" className="input" /></div>
           <div><label className="label">Invoice type</label>
             <select name="invoiceType" className="input"><option value="VAT">VAT tax invoice (VAT-registered)</option><option value="NON_VAT">Non-VAT invoice</option></select></div>
           <div><label className="label">TRN (15 digits)</label><input name="trn" className="input" inputMode="numeric" placeholder="100XXXXXXXXXXXX" /></div>
-          <div className="sm:col-span-2"><label className="label">Billing address</label><input name="address" required className="input" placeholder="Office 1204, Business Bay, Dubai" /></div>
-          <div><label className="label">Industry</label><input name="industry" className="input" placeholder="Logistics" /></div>
+          <div className="sm:col-span-2"><label className="label">Office address</label><input name="address" required className="input" placeholder="Shop 12, Al Karama, Dubai" /></div>
+          <div><label className="label">Customer WhatsApp / phone</label><input name="agencyPhone" required className="input" placeholder="04 123 4567 or 050 123 4567" /></div>
           <div><label className="label">Your mobile (for WhatsApp updates)</label><input name="phone" className="input" placeholder="050 123 4567" /></div>
           <div className="flex gap-2 sm:col-span-2"><Link href="/get-started/onboarding" className="btn-secondary">Back</Link><button className="btn-primary flex-1">Register company</button></div>
         </form>
@@ -89,12 +88,12 @@ export default async function Onboarding({ searchParams }: { searchParams: SP })
     <Shell>
       <div className="text-xs font-medium text-slate-500">Step 1 of 2</div>
       <h1 className="mt-1 text-xl font-semibold">What&apos;s your organization called?</h1>
-      <p className="mt-1 text-sm text-slate-600">We&apos;ll check whether your company is already on Safar.</p>
+      <p className="mt-1 text-sm text-slate-600">We&apos;ll check whether your agency is already on Safar.</p>
       {sp.error && <div className="mt-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-800">{sp.error}</div>}
       {match && (
         <div className="mt-5 rounded-lg border border-brand-200 bg-brand-50 p-4">
           <div className="text-sm font-medium">Did you mean {match.name}?</div>
-          <p className="mt-1 text-xs text-slate-600">Colleagues at @{domain} already use Safar. Join it instead of creating a duplicate.</p>
+          <p className="mt-1 text-xs text-slate-600">Colleagues at @{domain} already use Safar. Join your agency instead of creating a duplicate.</p>
           <form action={requestAccess} className="mt-3 flex gap-2">
             <input type="hidden" name="enterpriseId" value={match.id} />
             <input name="designation" className="input" placeholder="Your designation" />
@@ -103,11 +102,11 @@ export default async function Onboarding({ searchParams }: { searchParams: SP })
         </div>
       )}
       <form action={requestAccess} className="mt-5">
-        <label className="label">Have a company code?</label>
+        <label className="label">Have an agency code from your manager?</label>
         <div className="flex gap-2"><input name="code" className="input font-mono uppercase tracking-widest" placeholder="ABCD2345" maxLength={8} /><button className="btn-secondary shrink-0">Join</button></div>
       </form>
       <div className="my-5 flex items-center gap-3 text-xs text-slate-400"><span className="h-px flex-1 bg-slate-200" />or<span className="h-px flex-1 bg-slate-200" /></div>
-      <Link href="/get-started/onboarding?step=register" className="btn-primary w-full py-2.5">Register a new company</Link>
+      <Link href="/get-started/onboarding?step=register" className="btn-primary w-full py-2.5">Register a new agency</Link>
     </Shell>
   );
 }

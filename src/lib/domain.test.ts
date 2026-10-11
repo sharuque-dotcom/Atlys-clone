@@ -1,10 +1,10 @@
 import { describe, expect, it } from "vitest";
 import { checkDigit, findMrz, parseTd3 } from "./mrz";
 import { isValidEmiratesId, isValidTrn, luhnValid, normalizeEmiratesId, normalizeUaeMobile, isCorporateEmail } from "./validators";
-import { eligibility, requirementsFor } from "./requirements";
+import { ageOn, eligibility, requirementsFor } from "./requirements";
 import { getProduct } from "./catalog";
 import { assessRisk } from "./risk";
-import { price } from "./pricing";
+import { bookingTotals, price, quote } from "./pricing";
 import { addWorkingDays } from "./dates";
 
 const ICAO_SAMPLE = "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\nL898902C36UTO7408122F1204159ZE184226B<<<<<10";
@@ -94,7 +94,7 @@ describe("eligibility engine", () => {
     for (const k of ["PASSPORT", "EMIRATES_ID", "RESIDENCE_VISA", "NOC", "BANK_STATEMENT", "INVITATION_LETTER", "TRAVEL_INSURANCE"]) expect(keys).toContain(k);
   });
   it("business owners provide a trade licence instead of an NOC", () => {
-    const keys = requirementsFor(getProduct("DE-schengen-c")!, { nationality: "IN", uaeResident: true, isBusinessOwner: true }, "TOURISM").map((r) => r.key);
+    const keys = requirementsFor(getProduct("DE-schengen-c")!, { nationality: "IN", uaeResident: true, employmentType: "SELF_EMPLOYED" }, "TOURISM").map((r) => r.key);
     expect(keys).toContain("TRADE_LICENSE");
     expect(keys).not.toContain("NOC");
   });
@@ -161,5 +161,70 @@ describe("dates", () => {
   it("skips the UAE Sat/Sun weekend", () => {
     // Friday 2 Oct 2026 + 1 working day = Monday 5 Oct
     expect(addWorkingDays(new Date("2026-10-02T00:00:00Z"), 1).toISOString().slice(0, 10)).toBe("2026-10-05");
+  });
+});
+
+describe("families (retail)", () => {
+  const schengen = getProduct("FR-schengen-c")!;
+  const keys = (f: Parameters<typeof requirementsFor>[1]) => requirementsFor(schengen, f, "TOURISM").map((r) => r.key);
+
+  it("dependent spouse rides on the sponsor's file", () => {
+    const k = keys({ nationality: "IN", uaeResident: true, employmentType: "DEPENDENT", relationship: "SPOUSE", age: 34 });
+    expect(k).toEqual(expect.arrayContaining(["SPONSOR_DOCUMENTS", "SPONSORSHIP_LETTER", "MARRIAGE_CERTIFICATE"]));
+    expect(k).not.toContain("NOC");
+  });
+  it("minor needs a birth certificate, and consent only when a parent stays home", () => {
+    const both = keys({ nationality: "IN", uaeResident: true, relationship: "CHILD", age: 8, travelsWithBothParents: true });
+    const one = keys({ nationality: "IN", uaeResident: true, relationship: "CHILD", age: 8, travelsWithBothParents: false });
+    expect(both).toContain("BIRTH_CERTIFICATE");
+    expect(both).not.toContain("PARENTAL_CONSENT");
+    expect(one).toContain("PARENTAL_CONSENT");
+    expect(both).not.toContain("NOC");
+  });
+  it("computes age at departure", () => {
+    expect(ageOn(new Date("2018-12-10"), new Date("2026-12-09"))).toBe(7);
+    expect(ageOn(new Date("2018-12-10"), new Date("2026-12-10"))).toBe(8);
+  });
+  it("applies Schengen child embassy fees", () => {
+    expect(price(schengen, "STANDARD", "NONE", "STARTER", 4).governmentFils).toBe(0);
+    expect(price(schengen, "STANDARD", "NONE", "STARTER", 9).governmentFils).toBe(18000);
+    expect(price(schengen, "STANDARD", "NONE", "STARTER", 12).governmentFils).toBe(36500);
+  });
+  it("judges dependents on the sponsor's income, scaled for family size", () => {
+    const base = {
+      product: schengen, nationality: "IN", uaeResident: true, passportExpiry: new Date("2031-01-01"), residenceVisaExpiry: new Date("2029-01-01"),
+      emiratesIdExpiry: new Date("2029-01-01"), monthlySalaryAed: null, joinedAt: null, priorRejections: 0, travelHistory: ["GB"],
+      travelStart: new Date("2026-12-01"), travelEnd: new Date("2026-12-08"), missingRequiredDocs: 0, priority: false, today: new Date("2026-10-01"),
+      employmentType: "DEPENDENT",
+    };
+    expect(assessRisk({ ...base, sponsorSalaryAed: 15000, familySize: 1 }).factors.some((f) => f.id === "salary")).toBe(false);
+    expect(assessRisk({ ...base, sponsorSalaryAed: 15000, familySize: 4 }).factors.some((f) => f.id === "salary")).toBe(true);
+  });
+});
+
+describe("agency quote", () => {
+  const p = getProduct("FR-schengen-c")!;
+  const agency = { plan: "GROWTH", markupPct: 50, overrides: {}, vatRegistered: true };
+  it("marks up Safar's net service fee and keeps embassy fees at cost", () => {
+    const q = quote(p, "STANDARD", "NONE", agency);
+    expect(q.net.serviceFils).toBe(Math.round(39900 * 0.9));
+    expect(q.sell.serviceFils).toBe(Math.round(q.net.serviceFils * 1.5));
+    expect(q.sell.governmentFils).toBe(q.net.governmentFils);
+    expect(q.marginFils).toBe(q.sell.taxableFils - q.net.taxableFils);
+  });
+  it("uses the agency's own fee when set, and no VAT if not registered", () => {
+    const q = quote(p, "STANDARD", "NONE", { ...agency, overrides: { [p.id]: 30000 }, vatRegistered: false });
+    expect(q.sell.serviceFils).toBe(30000);
+    expect(q.sell.vatFils).toBe(0);
+  });
+});
+
+describe("booking totals", () => {
+  it("charges VAT on the discounted service value only", () => {
+    const line = { governmentFils: 36500, serviceFils: 50000, bundleFils: 0, courierFils: 0, taxableFils: 50000, vatFils: 2500, totalFils: 89000 };
+    const t = bookingTotals([line, line], 10000, true);
+    expect(t.taxableFils).toBe(90000);
+    expect(t.vatFils).toBe(4500);
+    expect(t.totalFils).toBe(90000 + 4500 + 73000);
   });
 });
