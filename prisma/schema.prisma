@@ -1,0 +1,308 @@
+// Safar Enterprise — data model
+// Enum-like fields are stored as strings (see src/lib/types.ts for the allowed values)
+// so the same schema runs on SQLite (dev) and PostgreSQL (production, UAE region).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model Enterprise {
+  id               String   @id @default(cuid())
+  name             String
+  legalName        String
+  domain           String?  @unique
+  companyCode      String   @unique
+  tradeLicenseNo   String?
+  licenseAuthority String? // DED Dubai, ADDED, DMCC, JAFZA, ...
+  trn              String? // UAE VAT Tax Registration Number (15 digits)
+  invoiceType      String   @default("VAT") // VAT | NON_VAT
+  emirate          String   @default("DXB")
+  industry         String?
+  size             String?
+  creditLimitFils  Int      @default(0)
+  plan             String   @default("GROWTH") // STARTER | GROWTH | ENTERPRISE
+  createdAt        DateTime @default(now())
+
+  branches       Branch[]
+  users          User[]
+  travelers      Traveler[]
+  applications   Application[]
+  trips          Trip[]
+  accessRequests AccessRequest[]
+  invoices       Invoice[]
+  auditLogs      AuditLog[]
+  messages       Message[]
+  apiKeys        ApiKey[]
+  webhooks       Webhook[]
+  policy         Policy?
+  costCenters    CostCenter[]
+}
+
+model Branch {
+  id           String     @id @default(cuid())
+  enterpriseId String
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  name         String
+  type         String     @default("BRANCH_OFFICE") // BILLING | SHIPPING | BRANCH_OFFICE
+  emirate      String
+  address      String
+  travelers    Traveler[]
+}
+
+model CostCenter {
+  id           String        @id @default(cuid())
+  enterpriseId String
+  enterprise   Enterprise    @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  code         String
+  name         String
+  budgetFils   Int           @default(0)
+  applications Application[]
+
+  @@unique([enterpriseId, code])
+}
+
+model Policy {
+  id                    String     @id @default(cuid())
+  enterpriseId          String     @unique
+  enterprise            Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  requireApproval       Boolean    @default(true)
+  autoApproveBelowFils  Int        @default(50000) // AED 500
+  allowPriority         Boolean    @default(true)
+  allowProtect          Boolean    @default(true)
+  blockedDestinations   String     @default("") // comma separated ISO2
+  minLeadDays           Int        @default(0)
+  whatsappNotifications Boolean    @default(true)
+}
+
+model User {
+  id           String     @id @default(cuid())
+  email        String     @unique
+  name         String
+  passwordHash String?
+  phone        String?
+  role         String     @default("EMPLOYEE") // OWNER | ADMIN | TRAVEL_MANAGER | APPROVER | FINANCE | EMPLOYEE
+  locale       String     @default("en")
+  enterpriseId String?
+  enterprise   Enterprise? @relation(fields: [enterpriseId], references: [id], onDelete: SetNull)
+  createdAt    DateTime   @default(now())
+
+  sessions        Session[]
+  accessRequests  AccessRequest[]
+  traveler        Traveler?       @relation("TravelerUser")
+  createdApps     Application[]   @relation("CreatedBy")
+  approvedApps    Application[]   @relation("ApprovedBy")
+  managedTravelers Traveler[]     @relation("Manager")
+}
+
+model Session {
+  id        String   @id
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
+model AccessRequest {
+  id           String     @id @default(cuid())
+  enterpriseId String
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  userId       String
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName     String
+  designation  String?
+  status       String     @default("PENDING") // PENDING | APPROVED | DENIED
+  decidedById  String?
+  createdAt    DateTime   @default(now())
+  decidedAt    DateTime?
+}
+
+model Traveler {
+  id                  String     @id @default(cuid())
+  enterpriseId        String
+  enterprise          Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  userId              String?    @unique
+  user                User?      @relation("TravelerUser", fields: [userId], references: [id])
+  managerId           String?
+  manager             User?      @relation("Manager", fields: [managerId], references: [id])
+  branchId            String?
+  branch              Branch?    @relation(fields: [branchId], references: [id])
+  employeeId          String?
+  firstName           String
+  lastName            String
+  email               String?
+  phone               String?
+  gender              String?
+  dateOfBirth         DateTime?
+  nationality         String // ISO 3166-1 alpha-2
+  designation         String?
+  department          String?
+  monthlySalaryAed    Int?
+  joinedAt            DateTime?
+  passportNo          String?
+  passportIssuedAt    DateTime?
+  passportExpiry      DateTime?
+  uaeResident         Boolean    @default(true)
+  emiratesIdNo        String?
+  emiratesIdExpiry    DateTime?
+  residenceVisaExpiry DateTime?
+  priorRejections     Int        @default(0)
+  travelHistory       String     @default("") // comma separated ISO2 visited in last 5y
+  createdAt           DateTime   @default(now())
+  updatedAt           DateTime   @updatedAt
+
+  documents    TravelerDocument[]
+  applications Application[]
+}
+
+model TravelerDocument {
+  id         String    @id @default(cuid())
+  travelerId String
+  traveler   Traveler  @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+  type       String // see DOCUMENT_TYPES
+  fileName   String
+  mimeType   String
+  size       Int
+  storageKey String
+  sha256     String
+  expiresAt  DateTime?
+  extracted  String? // JSON — fields extracted by OCR / MRZ
+  createdAt  DateTime  @default(now())
+}
+
+model Trip {
+  id           String        @id @default(cuid())
+  enterpriseId String
+  enterprise   Enterprise    @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  name         String
+  destination  String
+  purpose      String
+  startDate    DateTime
+  endDate      DateTime
+  createdAt    DateTime      @default(now())
+  applications Application[]
+}
+
+model Application {
+  id                String       @id @default(cuid())
+  ref               String       @unique
+  enterpriseId      String
+  enterprise        Enterprise   @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  travelerId        String
+  traveler          Traveler     @relation(fields: [travelerId], references: [id], onDelete: Cascade)
+  tripId            String?
+  trip              Trip?        @relation(fields: [tripId], references: [id])
+  costCenterId      String?
+  costCenter        CostCenter?  @relation(fields: [costCenterId], references: [id])
+  destination       String
+  productId         String
+  purpose           String
+  travelStart       DateTime
+  travelEnd         DateTime
+  bundle            String       @default("STANDARD") // STANDARD | PRIORITY | PROTECT
+  status            String       @default("DRAFT")
+  riskScore         Int?
+  riskReport        String? // JSON
+  pricing           String // JSON PriceBreakdown (fils)
+  appointmentAt     DateTime?
+  appointmentCenter String?
+  courier           String? // PICKUP | DROP_OFF | NONE
+  courierAddress    String?
+  notes             String?
+  createdById       String
+  createdBy         User         @relation("CreatedBy", fields: [createdById], references: [id])
+  approvedById      String?
+  approvedBy        User?        @relation("ApprovedBy", fields: [approvedById], references: [id])
+  approvedAt        DateTime?
+  submittedAt       DateTime?
+  decidedAt         DateTime?
+  invoiceId         String?
+  invoice           Invoice?     @relation(fields: [invoiceId], references: [id])
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+
+  events   ApplicationEvent[]
+  messages Message[]
+}
+
+model ApplicationEvent {
+  id            String      @id @default(cuid())
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          String
+  message       String
+  actorName     String?
+  createdAt     DateTime    @default(now())
+}
+
+model Invoice {
+  id           String        @id @default(cuid())
+  number       String        @unique
+  enterpriseId String
+  enterprise   Enterprise    @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  periodStart  DateTime
+  periodEnd    DateTime
+  issuedAt     DateTime      @default(now())
+  dueAt        DateTime
+  taxableFils  Int
+  vatFils      Int
+  disbursementFils Int // government fees passed through at cost (outside the scope of VAT)
+  totalFils    Int
+  status       String        @default("ISSUED") // DRAFT | ISSUED | PAID | OVERDUE
+  paidAt       DateTime?
+  applications Application[]
+}
+
+model Message {
+  id            String       @id @default(cuid())
+  enterpriseId  String
+  enterprise    Enterprise   @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  authorName    String
+  fromAgent     Boolean      @default(false)
+  body          String
+  createdAt     DateTime     @default(now())
+}
+
+model AuditLog {
+  id           String     @id @default(cuid())
+  enterpriseId String
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  actorId      String?
+  actorName    String
+  action       String
+  entity       String
+  entityId     String?
+  meta         String?
+  createdAt    DateTime   @default(now())
+
+  @@index([enterpriseId, createdAt])
+}
+
+model ApiKey {
+  id           String     @id @default(cuid())
+  enterpriseId String
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  name         String
+  prefix       String
+  hash         String     @unique
+  lastUsedAt   DateTime?
+  createdAt    DateTime   @default(now())
+  revokedAt    DateTime?
+}
+
+model Webhook {
+  id           String     @id @default(cuid())
+  enterpriseId String
+  enterprise   Enterprise @relation(fields: [enterpriseId], references: [id], onDelete: Cascade)
+  url          String
+  secret       String
+  events       String // comma separated
+  active       Boolean    @default(true)
+  createdAt    DateTime   @default(now())
+}
