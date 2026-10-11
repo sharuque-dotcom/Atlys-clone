@@ -88,7 +88,7 @@ export type AppStatus = (typeof APP_STATUSES)[number];
 export const STATUS_META: Record<AppStatus, { en: string; ar: string; tone: "gray" | "amber" | "blue" | "violet" | "green" | "red" }> = {
   DRAFT: { en: "Quoted", ar: "عرض سعر", tone: "gray" },
   DOCS_PENDING: { en: "Documents needed", ar: "مستندات مطلوبة", tone: "amber" },
-  IN_REVIEW: { en: "Expert review", ar: "مراجعة الخبراء", tone: "blue" },
+  IN_REVIEW: { en: "Preparing file", ar: "قيد تجهيز الملف", tone: "blue" },
   APPOINTMENT_BOOKED: { en: "Appointment booked", ar: "تم حجز الموعد", tone: "violet" },
   SUBMITTED: { en: "Submitted to embassy", ar: "قُدِّم إلى السفارة", tone: "blue" },
   ISSUED: { en: "Visa issued", ar: "صدرت التأشيرة", tone: "green" },
@@ -110,10 +110,11 @@ export const TRANSITIONS: Record<AppStatus, AppStatus[]> = {
 
 export const ACTIVE_STATUSES: AppStatus[] = ["DOCS_PENDING", "IN_REVIEW", "APPOINTMENT_BOOKED", "SUBMITTED"];
 
+// Service levels the AGENCY sells (suggested prices; scaled by the agency's markup).
 export const BUNDLES = {
-  STANDARD: { en: "Standard", ar: "قياسي", feeAed: 0, desc: "Expert review, auto-filled forms, document prep, 24/7 WhatsApp support." },
-  PRIORITY: { en: "Priority", ar: "أولوية", feeAed: 249, desc: "Fast-track appointment hunting, priority processing where the embassy offers it, dedicated specialist." },
-  PROTECT: { en: "Priority + Protect", ar: "أولوية + حماية", feeAed: 449, desc: "Everything in Priority plus a 100% refund of service fees and a free re-application if the visa is refused." },
+  STANDARD: { en: "Standard", ar: "قياسي", feeAed: 0, desc: "Document check, application filing, appointment booking and status updates." },
+  PRIORITY: { en: "Express", ar: "سريع", feeAed: 249, desc: "Same-day file preparation, earliest available appointment, priority processing where the embassy offers it." },
+  PROTECT: { en: "Express + Refund", ar: "سريع + استرداد", feeAed: 449, desc: "Express handling plus a refund of the agency's service fee if the visa is refused (your agency's guarantee)." },
 } as const;
 export type Bundle = keyof typeof BUNDLES;
 

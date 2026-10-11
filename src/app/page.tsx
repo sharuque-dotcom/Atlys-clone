@@ -8,60 +8,60 @@ import { country } from "@/lib/countries";
 
 const FEATURES = [
   {
+    title: "AI checks every document the moment it's uploaded",
+    ar: "الذكاء الاصطناعي يدقق كل مستند فور رفعه",
+    body: "Passport validity, name and number mismatches, a residence visa still on the old passport, Emirates ID numbers, photo backgrounds, NOC dates, bank-statement periods and balances, insurance cover, unattested marriage certificates — each flagged with the fix.",
+  },
+  {
+    title: "Cross-checks the whole family file",
+    ar: "مطابقة ملف العائلة بالكامل",
+    body: "Same salary on the NOC, salary certificate and profile. The sponsoring parent named on the child's birth certificate. Dates that match the trip. The things embassies refuse files for, caught before the appointment.",
+  },
+  {
+    title: "One print-ready file per applicant",
+    ar: "ملف جاهز للطباعة لكل متقدم",
+    body: "Download one PDF in the embassy's order: checklist cover sheet, pre-filled application data sheet, cover letter, itinerary, sponsorship and consent letters, employer NOC drafts and every uploaded document. Print and go.",
+  },
+  {
     title: "Quote a whole family in two minutes",
     ar: "عرض سعر لعائلة كاملة في دقيقتين",
-    body: "Pick the household, the destination and the dates. Safar works out each person's visa from their passport and UAE residence — including Schengen child fees, sponsored spouses and kids travelling with one parent.",
+    body: "Each person's visa, checklist and price from their passport, UAE residence, age and sponsor — including Schengen child fees, sponsored spouses and children travelling with one parent.",
+  },
+  {
+    title: "Customers upload from their phone",
+    ar: "العملاء يرفعون المستندات من هواتفهم",
+    body: "Send the quote on WhatsApp with a private link. The family uploads documents to a portal in your agency's name, and sees instantly if something needs replacing — no more chasing photos.",
   },
   {
     title: "Your price, your margin",
     ar: "سعرك وهامش ربحك",
-    body: "Buy at Safar net rates, set your own fee per visa or a default markup, and see the margin on every quote. Discounts come out of your margin — never below cost.",
-  },
-  {
-    title: "Send the quote on WhatsApp",
-    ar: "أرسل العرض عبر واتساب",
-    body: "One tap sends the price breakdown and a private link. The family sees exactly what each person needs and uploads documents from their phone — no more chasing photos on WhatsApp.",
-  },
-  {
-    title: "Refusal-risk check before you submit",
-    ar: "فحص مخاطر الرفض قبل التقديم",
-    body: "Passport and residence validity, sponsor income against family size, appointment backlog in Dubai & Abu Dhabi, previous refusals — each with the fix, so fewer customers come back angry.",
-  },
-  {
-    title: "Letters done for you",
-    ar: "الخطابات جاهزة",
-    body: "Cover letters, itineraries, family sponsorship letters, parental consent for minors, and NOC / salary-certificate drafts for the customer's employer — bilingual and print-ready.",
-  },
-  {
-    title: "Our back office does the processing",
-    ar: "مكتبنا الخلفي يتولى المعالجة",
-    body: "Form filling, appointment hunting at VFS, TLScontact and BLS, passport pickup across all seven emirates, embassy follow-up. Your counter staff stay with customers.",
+    body: "Set your own fee per visa. One flat platform fee per application — the rest is yours. Margins, balances due and VAT on every booking.",
   },
   {
     title: "Payments, balances & VAT invoices",
     ar: "المدفوعات والأرصدة والفواتير الضريبية",
-    body: "Record cash, card, transfer or payment-link deposits. Customer tax invoices carry your TRN and branding; embassy fees are shown as disbursements. One monthly statement from Safar.",
+    body: "Record cash, card or transfer. Customer tax invoices carry your TRN and branding; embassy fees are shown as disbursements.",
   },
   {
     title: "Renewal leads on autopilot",
     ar: "فرص التجديد تلقائيًا",
-    body: "Every passport and residence visa you've seen is tracked. When a customer's passport is about to expire, it shows up as a lead — before they walk into the agency next door.",
+    body: "Every passport and residence visa you've seen is tracked. Expiring passports show up as leads before the customer walks into the agency next door.",
   },
   {
     title: "Arabic, English, and your brand",
     ar: "العربية والإنجليزية وعلامتك التجارية",
-    body: "Bilingual app with right-to-left layout. Customers see your agency's name and colour on the portal, quotes and invoices — not ours.",
+    body: "Bilingual app with right-to-left layout and bilingual letters. Customers see your agency's name and colour — not ours.",
   },
 ];
 
 const COMPARE = [
+  ["Document checking", "Agent eyeballs each file", "AI review + rules on every upload"],
+  ["Visa on old passport, name mismatches", "Found at the embassy", "Flagged on upload"],
   ["Families with mixed ages & sponsorship", "One form per person", "One booking, per-person rules"],
-  ["Child embassy fees (e.g. Schengen <6 free)", "Manual", "Automatic"],
+  ["Letters & form data", "Typed from scratch", "Pre-filled, bilingual, print-ready"],
+  ["Final file", "Stapled by hand", "One PDF in submission order"],
   ["Customer document collection", "WhatsApp photos", "Branded upload portal"],
-  ["Agency margin visibility", "Spreadsheet", "Per quote, per month"],
-  ["UAE residence & Emirates ID checks", "—", "Automatic"],
   ["Invoicing", "Generic", "UAE VAT, your TRN, disbursements"],
-  ["Language", "English", "English + Arabic (RTL)"],
 ];
 
 export default async function Landing() {
@@ -74,7 +74,7 @@ export default async function Landing() {
           <Logo />
           <nav className="flex items-center gap-2">
             <a href="#features" className="btn-ghost hidden sm:inline-flex">Features</a>
-            <a href="#pricing" className="btn-ghost hidden sm:inline-flex">Net rates</a>
+            <a href="#pricing" className="btn-ghost hidden sm:inline-flex">Pricing</a>
             <LocaleToggle locale={locale} />
             <Link href="/get-started" className="btn-secondary">{t("landing.signin", locale)}</Link>
           </nav>
@@ -101,16 +101,16 @@ export default async function Landing() {
           </div>
           <div className="card self-center p-5">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Mehta family · Paris · 12–22 Dec</div>
-              <span className="text-xs text-slate-500">Quote BK-PARIS7</span>
+              <div className="text-sm font-semibold">Mehta family · Paris · AI review</div>
+              <span className="text-xs text-slate-500">4 applicants · 31 documents</span>
             </div>
             <ul className="mt-4 divide-y divide-slate-100 text-sm">
               {[
-                ["Rohan · father", "IN", "Schengen C · AED 947.75", "green"],
-                ["Priya · mother (sponsored)", "IN", "Schengen C · AED 947.75", "green"],
-                ["Aarav · 9 yrs", "IN", "Child embassy fee · AED 762.75", "green"],
-                ["Anaya · 4 yrs", "IN", "No embassy fee · AED 582.75", "green"],
-                ["Grandmother", "IN", "Passport < 3 months — renew first", "red"],
+                ["Rohan · passport", "IN", "✓ AI verified", "green"],
+                ["Priya · residence visa", "IN", "Issued under old passport — transfer first", "red"],
+                ["Rohan · employer NOC", "IN", "Dated 41 days ago — ask for a fresh copy", "amber"],
+                ["Aarav · photo", "IN", "Background not white — retake", "red"],
+                ["Anaya · birth certificate", "IN", "✓ Sponsor named as parent", "green"],
               ].map(([n, c, s, tone]) => (
                 <li key={n} className="flex items-center justify-between py-2.5">
                   <span className="flex items-center gap-2"><span className="text-lg">{country(c).flag}</span>{n}</span>
@@ -119,7 +119,7 @@ export default async function Landing() {
               ))}
             </ul>
             <div className="mt-4 rounded-lg bg-brand-50 p-3 text-xs text-brand-900">
-              Family discount AED 100 · total AED 3,136 · your margin AED 383.60. Sent on WhatsApp with the upload link.
+              2 issues to fix, then download one print-ready PDF per applicant — letters and form data pre-filled.
             </div>
           </div>
         </div>
@@ -170,13 +170,13 @@ export default async function Landing() {
       </section>
 
       <section id="pricing" className="mx-auto max-w-6xl px-4 py-20">
-        <h2 className="text-3xl font-semibold tracking-tight">Net rates that get better as you grow</h2>
-        <p className="mt-2 text-slate-600">No setup fee, no minimum volume. You pay Safar a net service fee per visa and keep whatever you charge on top. Embassy fees pass through at cost.</p>
+        <h2 className="text-3xl font-semibold tracking-tight">One flat fee per application</h2>
+        <p className="mt-2 text-slate-600">No setup fee, no seat licences. You charge your customers what you like; Safar charges a platform fee per application, including the AI review and the print pack. Prices excl. 5% VAT.</p>
         <div className="mt-10 grid gap-5 md:grid-cols-3">
           {[
-            ["Starter", "List net rates", ["Unlimited staff & customers", "Branded customer portal", "Weekly statement"]],
-            ["Growth", "10% off net rates", ["From 30 visas / month", "Monthly statement, 30-day terms", "Priority back-office queue"]],
-            ["Network", "20% off net rates", ["Multi-branch agencies", "API, webhooks & website widget", "Dedicated account manager"]],
+            ["Starter", "AED 39 / application", ["Unlimited staff & customers", "AI document review & print packs", "Branded customer portal"]],
+            ["Growth", "AED 29 / application", ["From 50 applications / month", "Monthly statement, 30-day terms", "Priority support"]],
+            ["Network", "AED 19 / application", ["Multi-branch agencies", "API, webhooks & website widget", "Dedicated account manager"]],
           ].map(([name, price, items]) => (
             <div key={name as string} className="card p-6">
               <div className="text-sm font-semibold text-brand-700">{name}</div>
@@ -194,11 +194,12 @@ export default async function Landing() {
           <h2 className="text-3xl font-semibold tracking-tight">Frequently asked</h2>
           <div className="mt-8 space-y-3">
             {[
-              ["Who actually processes the visa?", "Safar's back office in Dubai: forms, appointments, biometrics coordination, passport courier and embassy follow-up. You own the customer, set the price and get paid."],
+              ["What does the AI actually check?", "It reads each upload (passport, Emirates ID, residence visa, NOC, salary certificate, bank statement, insurance, certificates, photos) and our rules engine checks it against the destination's requirements, the trip dates and the family's other documents. Every flag says what's wrong and how to fix it; your agent can accept a flag with a reason."],
+              ["Does the AI decide whether a file is good enough?", "No. The AI only reads; the pass/fail rules are explicit and explainable, and your agent always has the final say. It catches mistakes earlier — the embassy still decides."],
               ["Can my customers see Safar's name?", "No. Quotes, the customer portal and invoices carry your agency's name, colour and TRN."],
               ["How do families send documents?", "They open a private link from your WhatsApp message and upload straight from their phone camera. Everything lands in the right person's file."],
               ["What about children and dependent spouses?", "Each traveler's checklist follows their age, sponsor and relationship: birth certificates, attested marriage certificates, sponsor documents and parental consent are all handled."],
-              ["Where is customer data stored?", "In a UAE cloud region, encrypted at rest. Every view and download is logged for PDPL accountability."],
+              ["Where is customer data stored?", "Files are stored encrypted in a UAE cloud region and every view and download is logged. Document images are sent to the AI provider only so they can be read; agencies should tell customers this in their privacy notice."],
             ].map(([q, a]) => (
               <details key={q} className="card group p-4">
                 <summary className="cursor-pointer list-none font-medium">{q}</summary>

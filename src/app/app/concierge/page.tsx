@@ -12,7 +12,7 @@ async function send(formData: FormData) {
   const body = String(formData.get("body") ?? "").trim();
   if (!body) return;
   await db.message.create({ data: { enterpriseId: user.enterpriseId, authorName: user.name, body: body.slice(0, 4000) } });
-  await db.message.create({ data: { enterpriseId: user.enterpriseId, authorName: "Safar Concierge", fromAgent: true, body: "Got it — a visa specialist is on this and will reply here and on WhatsApp within 2 minutes." } });
+  await db.message.create({ data: { enterpriseId: user.enterpriseId, authorName: "Safar Support", fromAgent: true, body: "Thanks — the Safar support team will reply here shortly (visa rules, platform help, document questions)." } });
   revalidatePath("/app/concierge");
 }
 
@@ -22,7 +22,7 @@ export default async function Concierge() {
   const messages = await db.message.findMany({ where: { enterpriseId: user.enterpriseId }, include: { application: true }, orderBy: { createdAt: "asc" }, take: 200 });
   return (
     <div>
-      <PageHeader title="Concierge" subtitle="24/7 visa specialists in Dubai — English, Arabic, Hindi, Urdu, Tagalog." actions={process.env.SUPPORT_WHATSAPP ? <a href={`https://wa.me/${process.env.SUPPORT_WHATSAPP}`} className="btn-secondary">Open WhatsApp</a> : null} />
+      <PageHeader title="Safar support" subtitle="Questions about visa rules, a document the AI flagged, or the platform." actions={process.env.SUPPORT_WHATSAPP ? <a href={`https://wa.me/${process.env.SUPPORT_WHATSAPP}`} className="btn-secondary">Open WhatsApp</a> : null} />
       <Section title="Company thread">
         <div className="space-y-3 p-4">
           {messages.length === 0 && <p className="text-sm text-slate-500">Ask about any destination, an urgent appointment, a refusal — anything.</p>}

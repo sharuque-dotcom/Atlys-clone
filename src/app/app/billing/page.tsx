@@ -38,12 +38,12 @@ export default async function Billing({ searchParams }: { searchParams: Promise<
       <Flash searchParams={sp} />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Stat label="Sales this month" value={formatAed(sales, locale)} hint={`margin ${formatAed(sales - cost, locale)}`} />
-        <Stat label="Output VAT (this month)" value={formatAed(salesVat, locale)} hint={`input VAT from Safar ${formatAed(inputVat, locale)}`} />
-        <Stat label="Owed to Safar (unbilled)" value={formatAed(unbilledNet, locale)} hint={`${unbilled.length} visas`} />
+        <Stat label="Output VAT (this month)" value={formatAed(salesVat, locale)} hint={`input VAT on platform fees ${formatAed(inputVat, locale)}`} />
+        <Stat label="Platform fees (unbilled)" value={formatAed(unbilledNet, locale)} hint={`${unbilled.length} applications`} />
         <Stat label="Safar statements unpaid" value={formatAed(outstanding, locale)} hint={user.enterprise.plan === "STARTER" ? "7-day terms" : "30-day terms"} />
       </div>
       <div className="grid gap-6 lg:grid-cols-[1fr_320px]">
-        <Section title="Safar statements (your cost, net rates)">
+        <Section title="Safar statements (platform fees)">
           {invoices.length === 0 ? <Empty title="No statements yet" /> : (
             <table className="w-full">
               <thead className="border-b border-slate-100"><tr><th className="th">Number</th><th className="th">Issued</th><th className="th">Due</th><th className="th text-end">Total</th><th className="th">Status</th><th className="th" /></tr></thead>

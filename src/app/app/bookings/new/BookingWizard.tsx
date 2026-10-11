@@ -313,7 +313,7 @@ export function BookingWizard({ customerId, members, preselected, presetDestinat
         </dl>
         {!customerView && needVisa.length > 0 && (
           <div className="mt-3 rounded-lg bg-brand-50 p-3 text-xs text-brand-900">
-            Your cost {formatAed(sum((a) => a.q!.net.totalFils))} · <b>margin {formatAed(margin - discountFils)}</b>
+            Platform fees {formatAed(sum((a) => a.q!.net.taxableFils))} · <b>your margin {formatAed(margin - discountFils)}</b>
           </div>
         )}
       </aside>

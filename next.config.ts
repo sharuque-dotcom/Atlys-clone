@@ -2,6 +2,7 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   poweredByHeader: false,
+  serverExternalPackages: ["playwright-core"],
   experimental: { serverActions: { bodySizeLimit: "15mb" } },
   async headers() {
     return [

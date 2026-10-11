@@ -123,3 +123,17 @@ export function findMrz(text: string): string | null {
   }
   return null;
 }
+
+/** Builds a valid TD3 MRZ (used for specimens and tests). Dates are YYYY-MM-DD; nationality is ICAO alpha-3. */
+export function buildTd3(o: { surname: string; given: string; passportNo: string; nationality3: string; dob: string; sex: "M" | "F" | "<"; expiry: string; issuer3?: string }) {
+  const clean = (s: string) => s.toUpperCase().replace(/[^A-Z0-9 ]/g, "").trim().replace(/\s+/g, "<");
+  const yymmdd = (d: string) => d.slice(2, 4) + d.slice(5, 7) + d.slice(8, 10);
+  const l1 = `P<${(o.issuer3 ?? o.nationality3).padEnd(3, "<")}${clean(o.surname)}<<${clean(o.given)}`.padEnd(44, "<").slice(0, 44);
+  const no = o.passportNo.toUpperCase().padEnd(9, "<").slice(0, 9);
+  const dob = yymmdd(o.dob);
+  const exp = yymmdd(o.expiry);
+  const personal = "<".repeat(14);
+  const head = `${no}${checkDigit(no)}${o.nationality3.padEnd(3, "<")}${dob}${checkDigit(dob)}${o.sex}${exp}${checkDigit(exp)}${personal}0`;
+  const composite = head.slice(0, 10) + head.slice(13, 20) + head.slice(21, 43);
+  return `${l1}\n${head}${checkDigit(composite)}`;
+}

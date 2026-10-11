@@ -1,10 +1,10 @@
 // Pricing in AED with UAE VAT treatment.
 //
-// Two price layers per application:
-//   net  — what Safar charges the agency (wholesale service fee, volume-discounted by plan)
-//   sell — what the agency charges its retail customer (its own fee per product, or net × (1 + markup))
-// In both layers service fees, bundles and courier are standard-rated (5% VAT) and government/embassy fees
-// are passed through at cost as disbursements, outside the scope of VAT.
+// Safar is software: the agency processes the visa and sets its own retail price. Two layers per application:
+//   platform — Safar's per-application fee to the agency (by plan), billed on a periodic statement
+//   sell     — what the agency charges its customer: its service fee (own price per visa, or the suggested
+//              market price ± markup), optional express/VIP handling and courier, plus the embassy fee at cost.
+// Service fees are standard-rated (5% VAT); embassy fees are disbursements outside the scope of VAT.
 
 import type { VisaProduct } from "./catalog";
 import { aedToFils, vatOn } from "./money";
@@ -23,10 +23,9 @@ export type PriceBreakdown = {
 export const COURIER_FEES_AED = { NONE: 0, DROP_OFF: 0, PICKUP: 75 } as const;
 export type Courier = keyof typeof COURIER_FEES_AED;
 
-/** Wholesale volume discount on Safar's service fee, by agency plan. */
-export function volumeDiscount(plan: string) {
-  return plan === "ENTERPRISE" ? 0.2 : plan === "GROWTH" ? 0.1 : 0;
-}
+/** Safar's platform fee per application, by agency plan (AED, excl. VAT). */
+export const PLATFORM_FEE_AED: Record<string, number> = { STARTER: 39, GROWTH: 29, ENTERPRISE: 19 };
+export const platformFeeAed = (plan: string) => PLATFORM_FEE_AED[plan] ?? PLATFORM_FEE_AED.STARTER;
 
 /** Embassy fee, with child reductions where the embassy offers them (e.g. Schengen: <6 free, 6–11 half). */
 export function governmentFeeAed(product: VisaProduct, age?: number | null) {
@@ -43,35 +42,38 @@ function breakdown(governmentFils: number, serviceFils: number, bundleFils: numb
   return { governmentFils, serviceFils, bundleFils, courierFils, taxableFils, vatFils, totalFils: governmentFils + taxableFils + vatFils };
 }
 
-/** Safar's wholesale price to the agency. */
-export function price(product: VisaProduct, bundle: Bundle, courier: Courier, plan = "STARTER", age?: number | null): PriceBreakdown {
-  return breakdown(
-    aedToFils(governmentFeeAed(product, age)),
-    Math.round(aedToFils(product.serviceFeeAed) * (1 - volumeDiscount(plan))),
-    aedToFils(BUNDLES[bundle].feeAed),
-    product.passportSubmission ? aedToFils(COURIER_FEES_AED[courier]) : 0,
-    true,
-  );
+/** What the agency pays Safar for one application. */
+export function platformFee(plan: string): PriceBreakdown {
+  return breakdown(0, aedToFils(platformFeeAed(plan)), 0, 0, true);
 }
 
 export type AgencyPricing = {
   plan: string;
+  /** ± % applied to the suggested market service fee for visas without a fixed agency price */
   markupPct: number;
   /** productId → agency's retail service fee in fils */
   overrides: Record<string, number>;
   vatRegistered: boolean;
 };
 
+/** The agency's retail service fee for a product (before VAT). */
+export function retailServiceFils(product: VisaProduct, agency: AgencyPricing) {
+  return agency.overrides[product.id] ?? Math.round(aedToFils(product.serviceFeeAed) * (1 + agency.markupPct / 100));
+}
+
 export type Quote = { net: PriceBreakdown; sell: PriceBreakdown; marginFils: number };
 
-/** Retail price for the customer plus the agency's margin over Safar's net price. */
+/** Customer price and the agency's margin after Safar's platform fee. */
 export function quote(product: VisaProduct, bundle: Bundle, courier: Courier, agency: AgencyPricing, age?: number | null): Quote {
-  const net = price(product, bundle, courier, agency.plan, age);
-  const override = agency.overrides[product.id];
-  const sellService = override ?? Math.round(net.serviceFils * (1 + agency.markupPct / 100));
-  // Bundles and courier are resold at the same markup.
   const up = (fils: number) => Math.round(fils * (1 + agency.markupPct / 100));
-  const sell = breakdown(net.governmentFils, sellService, up(net.bundleFils), up(net.courierFils), agency.vatRegistered);
+  const sell = breakdown(
+    aedToFils(governmentFeeAed(product, age)),
+    retailServiceFils(product, agency),
+    up(aedToFils(BUNDLES[bundle].feeAed)),
+    product.passportSubmission ? up(aedToFils(COURIER_FEES_AED[courier])) : 0,
+    agency.vatRegistered,
+  );
+  const net = platformFee(agency.plan);
   return { net, sell, marginFils: sell.taxableFils - net.taxableFils };
 }
 

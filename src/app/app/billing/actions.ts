@@ -8,7 +8,7 @@ import { parseNetPricing } from "@/lib/applications";
 import { audit } from "@/lib/audit";
 import { addDays } from "@/lib/dates";
 
-/** Safar → agency: consolidates all un-invoiced, confirmed applications at NET rates into one FTA tax invoice. */
+/** Safar → agency: consolidates platform fees for all un-invoiced, confirmed applications into one FTA tax invoice. */
 export async function generateInvoice() {
   const user = await requireMember("billing.view");
   const apps = await db.application.findMany({

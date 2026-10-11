@@ -23,7 +23,7 @@ export async function confirmBookingAction(formData: FormData) {
   } catch (e) {
     back(id, "error", e instanceof Error ? e.message : "Failed");
   }
-  back(id, "ok", "Booking confirmed — processing started and the customer was notified");
+  back(id, "ok", "Booking confirmed — the customer has been sent the document upload link");
 }
 
 export async function recordPayment(formData: FormData) {

@@ -30,7 +30,7 @@ export type Eligibility =
 
 export function eligibility(destination: string, facts: TravelerFacts, purpose: Purpose): Eligibility {
   const dest = DESTINATION_BY_CODE.get(destination);
-  if (!dest) return { status: "NOT_SUPPORTED", message: "We don't process this destination yet — our concierge team can still help." };
+  if (!dest) return { status: "NOT_SUPPORTED", message: "This destination isn't in the catalog yet — check the embassy's rules directly or ask Safar support." };
   if (facts.nationality === destination) return { status: "VISA_FREE", message: "Citizens don't need a visa to enter their own country." };
 
   // UK: GCC passport holders use the ETA instead of a visa.
@@ -50,7 +50,7 @@ export function eligibility(destination: string, facts: TravelerFacts, purpose: 
     (p) => p.kind !== "ETA" && p.purposes.includes(purpose) && (!p.requiresUaeResidence || facts.uaeResident),
   );
   if (products.length === 0) {
-    return { status: "NOT_SUPPORTED", message: "No standard product matches this purpose — our concierge will advise on alternatives." };
+    return { status: "NOT_SUPPORTED", message: "No standard visa matches this purpose — check the embassy's rules or ask Safar support." };
   }
   return { status: "VISA_REQUIRED", products, message: `${products.length} visa option${products.length > 1 ? "s" : ""} available.` };
 }
@@ -62,7 +62,8 @@ export type Requirement = {
   reason?: string;
 };
 
-const AUTO_GENERATED: DocumentRequirementKey[] = ["COVER_LETTER", "ITINERARY", "FLIGHT_RESERVATION", "HOTEL_BOOKING", "SPONSORSHIP_LETTER", "PARENTAL_CONSENT"];
+// Letters Safar writes and puts in the print pack. Reservations, insurance etc. are uploaded by the agency.
+const AUTO_GENERATED: DocumentRequirementKey[] = ["COVER_LETTER", "ITINERARY", "SPONSORSHIP_LETTER", "PARENTAL_CONSENT"];
 
 /**
  * Per-traveler checklist for a retail family application filed from the UAE.

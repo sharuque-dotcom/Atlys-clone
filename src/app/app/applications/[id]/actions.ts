@@ -13,12 +13,12 @@ function back(id: string, key: "ok" | "error", msg: string): never {
   redirect(`/app/applications/${id}?${key}=${encodeURIComponent(msg)}`);
 }
 
-/** Operations console — in production this is driven by Safar's ops team / embassy integrations. */
+/** Agency staff record progress after filing at the centre (appointment, submission, decision). */
 export async function opsTransition(formData: FormData) {
   const id = String(formData.get("id"));
   const to = String(formData.get("to")) as AppStatus;
   const note = String(formData.get("note") ?? "").trim() || undefined;
-  const user = await requireMember("org.manage");
+  const user = await requireMember("applications.create");
   if (!APP_STATUSES.includes(to)) back(id, "error", "Unknown status");
   const extra: Record<string, unknown> = {};
   if (to === "APPOINTMENT_BOOKED") {
@@ -54,12 +54,8 @@ export async function postMessage(formData: FormData) {
   const body = String(formData.get("body") ?? "").trim();
   const user = await requireMember();
   const app = await db.application.findFirst({ where: { id, ...applicationScope(user) } });
-  if (!app || !body) back(id, "error", "Message is empty");
+  if (!app || !body) back(id, "error", "Note is empty");
   await db.message.create({ data: { enterpriseId: user.enterpriseId, applicationId: id, authorName: user.name, body: body.slice(0, 4000) } });
-  // Concierge auto-acknowledgement; a human specialist picks the thread up from the ops queue.
-  await db.message.create({
-    data: { enterpriseId: user.enterpriseId, applicationId: id, authorName: "Safar Concierge", fromAgent: true, body: `Thanks ${user.name.split(" ")[0]} — a visa specialist has your message on ${app!.ref} and will reply here and on WhatsApp shortly.` },
-  });
   await audit({ id: user.id, name: user.name, enterpriseId: user.enterpriseId }, "message.posted", "Application", id);
   revalidatePath(`/app/applications/${id}`);
   redirect(`/app/applications/${id}#messages`);

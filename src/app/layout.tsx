@@ -5,7 +5,7 @@ import { dirOf } from "@/lib/i18n";
 
 export const metadata: Metadata = {
   title: { default: "Safar — the visa desk for UAE travel agencies", template: "%s · Safar" },
-  description: "Quote families in minutes, collect documents through a branded portal, and let our Dubai back office process the visas. Your brand, your price.",
+  description: "Quote families in minutes, collect documents through a branded portal, let AI check every document, and print a complete embassy-ready file.",
 };
 
 export default async function RootLayout({ children }: { children: React.ReactNode }) {

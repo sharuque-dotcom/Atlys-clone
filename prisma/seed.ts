@@ -10,7 +10,15 @@ import { ageOn } from "../src/lib/requirements";
 import { householdContext } from "../src/lib/household";
 import { addDays } from "../src/lib/dates";
 import { randomCode } from "../src/lib/refs";
-import { randomBytes } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
+import { mkdir, writeFile } from "node:fs/promises";
+import path from "node:path";
+import { PDFDocument, StandardFonts, degrees, rgb } from "pdf-lib";
+import type { Traveler } from "@prisma/client";
+import { buildTd3 } from "../src/lib/mrz";
+import { ALPHA3_TO_ALPHA2 } from "../src/lib/countries";
+import { luhnValid } from "../src/lib/validators";
+import type { Extraction } from "../src/lib/review/extraction";
 import type { Bundle } from "../src/lib/types";
 
 const db = new PrismaClient();
@@ -18,6 +26,77 @@ const DEMO_PASSWORD = "Safar-Demo-2026!";
 const now = new Date();
 const d = (days: number) => addDays(now, days);
 const yearsAgo = (y: number, extraDays = 0) => addDays(now, -Math.round(y * 365.25) - extraDays);
+
+
+// ---------- demo documents ----------
+const iso = (dt: Date | null | undefined) => (dt ? dt.toISOString().slice(0, 10) : null);
+const name = (t: Traveler) => `${t.firstName} ${t.lastName}`.toUpperCase();
+const A2_TO_A3 = Object.fromEntries(Object.entries(ALPHA3_TO_ALPHA2).filter(([k]) => /^[A-Z]{3}$/.test(k)).map(([a3, a2]) => [a2, a3]));
+const BLANK: Extraction = {
+  detectedType: "OTHER", readable: true, qualityIssues: [], holderName: null, documentNumber: null, nationality: null, dateOfBirth: null, issueDate: null,
+  expiryDate: null, mrz: null, linkedPassportNumber: null, sponsorOrEmployer: null, profession: null, monthlySalaryAed: null, letterDate: null,
+  periodFrom: null, periodTo: null, closingBalanceAed: null, accountHolder: null, hasStampOrSignature: null, attested: null, coverageAmountEur: null,
+  coversSchengen: null, parentNames: [], spouseNames: [], photo: null, notes: null,
+};
+
+function validEid(seed: string) {
+  const p = ("784" + seed.replace(/\D/g, "") + "00000000000").slice(0, 14);
+  for (let i = 0; i <= 9; i++) if (luhnValid(p + i)) return `${p.slice(0, 3)}-${p.slice(3, 7)}-${p.slice(7, 14)}-${i}`;
+  return p;
+}
+
+function defaultExtraction(t: Traveler, type: string, household: Traveler[]): Extraction {
+  const self = household.find((h) => h.relationship === "SELF") ?? t;
+  const spouse = household.find((h) => h.relationship === "SPOUSE");
+  const base = { ...BLANK, detectedType: type as Extraction["detectedType"], holderName: name(t) };
+  switch (type) {
+    case "PASSPORT": {
+      const exp = iso(t.passportExpiry)!;
+      const dob = iso(t.dateOfBirth) ?? "1990-01-01";
+      return { ...base, documentNumber: t.passportNo, nationality: t.nationality, dateOfBirth: dob, expiryDate: exp, issueDate: `${Number(exp.slice(0, 4)) - 10}${exp.slice(4)}`,
+        mrz: buildTd3({ surname: t.lastName, given: t.firstName, passportNo: t.passportNo!, nationality3: A2_TO_A3[t.nationality] ?? "XXX", dob, sex: t.gender === "FEMALE" ? "F" : "M", expiry: exp }) };
+    }
+    case "PHOTO": return { ...base, holderName: null, photo: { whiteBackground: true, faceCentered: true, wearingGlasses: false, headCovered: false } };
+    case "EMIRATES_ID": return { ...base, documentNumber: t.emiratesIdNo ?? validEid(`${t.dateOfBirth?.getUTCFullYear() ?? 1990}${(t.passportNo ?? "1234567").replace(/\D/g, "")}`), nationality: t.nationality, expiryDate: iso(t.emiratesIdExpiry ?? t.residenceVisaExpiry), dateOfBirth: iso(t.dateOfBirth) };
+    case "RESIDENCE_VISA": return { ...base, documentNumber: `201/${new Date().getUTCFullYear() - 1}/7${(t.passportNo ?? "000000").replace(/\D/g, "").slice(0, 6)}`, linkedPassportNumber: t.passportNo, expiryDate: iso(t.residenceVisaExpiry), sponsorOrEmployer: t.employmentType === "EMPLOYED" ? t.employerName : name(self), profession: t.designation };
+    case "NOC": return { ...base, sponsorOrEmployer: t.employerName, profession: t.designation, monthlySalaryAed: t.monthlySalaryAed, letterDate: iso(d(-4)), hasStampOrSignature: true };
+    case "SALARY_CERTIFICATE": return { ...base, sponsorOrEmployer: t.employerName, profession: t.designation, monthlySalaryAed: t.monthlySalaryAed, letterDate: iso(d(-4)), hasStampOrSignature: true };
+    case "BANK_STATEMENT": return { ...base, accountHolder: name(t), periodFrom: iso(d(-186)), periodTo: iso(d(-3)), closingBalanceAed: 85000, hasStampOrSignature: true };
+    case "TRADE_LICENSE": return { ...base, holderName: t.employerName, sponsorOrEmployer: t.employerName, documentNumber: "CN-" + (t.passportNo ?? "").replace(/\D/g, "").slice(0, 7), expiryDate: iso(d(280)), hasStampOrSignature: true };
+    case "MARRIAGE_CERTIFICATE": return { ...base, holderName: null, spouseNames: [name(self), name(spouse ?? t)], hasStampOrSignature: true, attested: true };
+    case "BIRTH_CERTIFICATE": return { ...base, dateOfBirth: iso(t.dateOfBirth), parentNames: [name(self), ...(spouse ? [name(spouse)] : [])], hasStampOrSignature: true, attested: true };
+    default: return base;
+  }
+}
+
+const STORAGE = path.resolve(process.env.STORAGE_DIR ?? "./storage");
+
+async function specimenDoc(t: Traveler, type: string, x: Extraction) {
+  // A clearly-marked SPECIMEN page standing in for the scan, so print packs have real pages in the demo.
+  const pdf = await PDFDocument.create();
+  const page = pdf.addPage([595, 842]);
+  const f = await pdf.embedFont(StandardFonts.Helvetica);
+  const b = await pdf.embedFont(StandardFonts.HelveticaBold);
+  page.drawText("SPECIMEN — DEMO DATA", { x: 90, y: 420, size: 46, font: b, color: rgb(0.93, 0.85, 0.85), rotate: degrees(35) });
+  page.drawText(type.replace(/_/g, " "), { x: 50, y: 780, size: 20, font: b });
+  let y = 740;
+  for (const [k, v] of Object.entries(x)) {
+    if (v == null || (Array.isArray(v) && !v.length) || k === "readable" || k === "qualityIssues") continue;
+    const text = (typeof v === "object" ? JSON.stringify(v) : String(v)).replace(/[^\x20-\x7E]/g, " ");
+    for (const line of text.split("\n")) { page.drawText(`${k === "mrz" ? "" : k + ": "}${line}`.slice(0, 95), { x: 50, y, size: k === "mrz" ? 9 : 11, font: f }); y -= 18; }
+  }
+  const bytes = Buffer.from(await pdf.save());
+  const key = `${t.enterpriseId}/demo-${randomCode(10).toLowerCase()}.pdf`;
+  await mkdir(path.dirname(path.join(STORAGE, key)), { recursive: true });
+  await writeFile(path.join(STORAGE, key), bytes);
+  await db.travelerDocument.create({
+    data: {
+      travelerId: t.id, type, fileName: `${type.toLowerCase()}_${t.firstName.toLowerCase()}.pdf`, mimeType: "application/pdf", size: bytes.length,
+      storageKey: key, sha256: createHash("sha256").update(bytes).digest("hex"), expiresAt: x.expiryDate ? new Date(x.expiryDate) : null,
+      extracted: JSON.stringify(x), aiStatus: "DONE", aiModel: "seed (recorded demo reading)", aiCheckedAt: d(-1),
+    },
+  });
+}
 
 async function main() {
   await db.enterprise.deleteMany({ where: { domain: "oasistravel.ae" } });
@@ -40,7 +119,7 @@ async function main() {
       email: "visas@oasistravel.ae",
       brandColor: "#0f6e8c",
       invoicePrefix: "OTT",
-      markupPct: 40,
+      markupPct: 0,
       plan: "GROWTH",
       branches: {
         create: [
@@ -62,29 +141,26 @@ async function main() {
   const pending = await db.user.create({ data: { email: "new.joiner@gmail.com", name: "Daniel Okafor", passwordHash: pw } });
   await db.accessRequest.create({ data: { enterpriseId: agency.id, userId: pending.id, fullName: pending.name, designation: "Visa counter agent" } });
 
-  const pricing: AgencyPricing = { plan: "GROWTH", markupPct: 40, overrides: { "FR-schengen-c": 45000, "GB-visitor": 55000 }, vatRegistered: true };
+  const pricing: AgencyPricing = { plan: "GROWTH", markupPct: 0, overrides: { "FR-schengen-c": 45000, "GB-visitor": 55000 }, vatRegistered: true };
 
-  type M = Omit<Prisma.TravelerUncheckedCreateInput, "enterpriseId" | "customerId"> & { docs?: string[] };
+  type DocSpec = string | { type: string; x: Partial<Extraction> };
+  type M = Omit<Prisma.TravelerUncheckedCreateInput, "enterpriseId" | "customerId"> & { docs?: DocSpec[] };
   const household = async (c: { name: string; phone: string; email?: string; source: string; emirate: string; notes?: string; createdDaysAgo: number }, members: M[]) => {
     const { createdDaysAgo, ...fields } = c;
     const customer = await db.customer.create({ data: { ...fields, enterpriseId: agency.id, assignedToId: ravi.id, createdAt: d(-createdDaysAgo) } });
     const created = [];
-    for (const { docs, ...m } of members) {
-      const t = await db.traveler.create({ data: { ...m, enterpriseId: agency.id, customerId: customer.id } });
-      for (const type of docs ?? []) {
-        await db.travelerDocument.create({
-          data: {
-            travelerId: t.id, type, fileName: `${type.toLowerCase()}_${t.firstName.toLowerCase()}.pdf`, mimeType: "application/pdf", size: 150_000 + Math.floor(Math.random() * 300_000),
-            storageKey: `demo/${t.id}/${type}.pdf`, sha256: randomCode(32).toLowerCase(),
-            expiresAt: type === "PASSPORT" ? t.passportExpiry : type === "RESIDENCE_VISA" || type === "EMIRATES_ID" ? t.residenceVisaExpiry : null,
-          },
-        });
-      }
-      created.push(t);
-    }
+    for (const { docs: _docs, ...m } of members) created.push(await db.traveler.create({ data: { ...m, enterpriseId: agency.id, customerId: customer.id } }));
     // Link dependents to the main applicant as sponsor
     const self = created.find((x) => x.relationship === "SELF");
     for (const t of created) if (self && t.id !== self.id && ["DEPENDENT", "STUDENT"].includes(t.employmentType)) await db.traveler.update({ where: { id: t.id }, data: { sponsorId: self.id } });
+    // Specimen files + the AI reading recorded for each (so the demo works without an API key)
+    for (const [i, m] of members.entries()) {
+      for (const spec of m.docs ?? []) {
+        const type = typeof spec === "string" ? spec : spec.type;
+        const x = { ...defaultExtraction(created[i], type, created), ...(typeof spec === "string" ? {} : spec.x) };
+        await specimenDoc(created[i], type, x);
+      }
+    }
     return { customer, members: await db.traveler.findMany({ where: { customerId: customer.id }, include: { documents: true }, orderBy: { createdAt: "asc" } }) };
   };
 
@@ -133,7 +209,7 @@ async function main() {
               events: {
                 create: [
                   { type: "CREATED", message: `Quoted ${product.name}`, actorName: ravi.name, createdAt: created },
-                  ...(o.events?.(m.firstName) ?? []).map(([type, message, ago]) => ({ type, message, actorName: type === "CUSTOMER_UPLOAD" ? o.h.customer.name : "Safar Ops", createdAt: d(-ago) })),
+                  ...(o.events?.(m.firstName) ?? []).map(([type, message, ago]) => ({ type, message, actorName: type === "CUSTOMER_UPLOAD" ? o.h.customer.name : ravi.name, createdAt: d(-ago) })),
                 ],
               },
             };
@@ -151,18 +227,25 @@ async function main() {
   const mehta = await household(
     { name: "Rohan Mehta", phone: "+971501112233", email: "rohan.mehta@gmail.com", source: "REFERRAL", emirate: "DXB", notes: "Prefers weekend appointments. Referred by the Shahs.", createdDaysAgo: 20 },
     [
-      { firstName: "Rohan", lastName: "Mehta", relationship: "SELF", employmentType: "EMPLOYED", employerName: "Gulf Engineering Consultants LLC", designation: "Senior Project Engineer", monthlySalaryAed: 26000, joinedAt: yearsAgo(4), nationality: "IN", gender: "MALE", dateOfBirth: yearsAgo(39), passportNo: "Z4821936", passportExpiry: d(1900), emiratesIdNo: "784-1987-4821936-1", residenceVisaExpiry: d(640), emiratesIdExpiry: d(640), travelHistory: "GB,SG,TH", phone: "+971501112233", docs: ["PASSPORT", "PHOTO", "EMIRATES_ID", "RESIDENCE_VISA", "BANK_STATEMENT", "NOC", "SALARY_CERTIFICATE"] },
-      { firstName: "Priya", lastName: "Mehta", relationship: "SPOUSE", employmentType: "DEPENDENT", nationality: "IN", gender: "FEMALE", dateOfBirth: yearsAgo(36), passportNo: "Z5519021", passportExpiry: d(2100), residenceVisaExpiry: d(640), emiratesIdExpiry: d(640), travelHistory: "SG,TH", docs: ["PASSPORT", "PHOTO", "EMIRATES_ID", "RESIDENCE_VISA"] },
-      { firstName: "Aarav", lastName: "Mehta", relationship: "CHILD", employmentType: "DEPENDENT", nationality: "IN", gender: "MALE", dateOfBirth: yearsAgo(9, -40), passportNo: "Z7712044", passportExpiry: d(1300), residenceVisaExpiry: d(640), emiratesIdExpiry: d(640), docs: ["PASSPORT", "PHOTO"] },
-      { firstName: "Anaya", lastName: "Mehta", relationship: "CHILD", employmentType: "DEPENDENT", nationality: "IN", gender: "FEMALE", dateOfBirth: yearsAgo(4, -100), passportNo: "Z8830511", passportExpiry: d(1500), residenceVisaExpiry: d(640), emiratesIdExpiry: d(640), docs: ["PASSPORT"] },
+      { firstName: "Rohan", lastName: "Mehta", relationship: "SELF", employmentType: "EMPLOYED", employerName: "Gulf Engineering Consultants LLC", designation: "Senior Project Engineer", monthlySalaryAed: 26000, joinedAt: yearsAgo(4), nationality: "IN", gender: "MALE", dateOfBirth: yearsAgo(39), passportNo: "Z4821936", passportExpiry: d(1900), residenceVisaExpiry: d(640), emiratesIdExpiry: d(640), travelHistory: "GB,SG,TH", phone: "+971501112233",
+        docs: ["PASSPORT", "PHOTO", "EMIRATES_ID", "RESIDENCE_VISA", "SALARY_CERTIFICATE",
+          // NOC is 41 days old; balance is thin for a family of four for 11 days
+          { type: "NOC", x: { letterDate: iso(d(-41)), periodFrom: iso(d(42)), periodTo: iso(d(52)) } },
+          { type: "BANK_STATEMENT", x: { closingBalanceAed: 31500 } }] },
+      { firstName: "Priya", lastName: "Mehta", relationship: "SPOUSE", employmentType: "DEPENDENT", nationality: "IN", gender: "FEMALE", dateOfBirth: yearsAgo(36), passportNo: "Z5519021", passportExpiry: d(2100), residenceVisaExpiry: d(640), emiratesIdExpiry: d(640), travelHistory: "SG,TH",
+        // Renewed passport, but the residence visa is still stamped on the old one
+        docs: ["PASSPORT", "PHOTO", "EMIRATES_ID", { type: "RESIDENCE_VISA", x: { linkedPassportNumber: "K1122334" } }, "MARRIAGE_CERTIFICATE"] },
+      { firstName: "Aarav", lastName: "Mehta", relationship: "CHILD", employmentType: "DEPENDENT", nationality: "IN", gender: "MALE", dateOfBirth: yearsAgo(9, -40), passportNo: "Z7712044", passportExpiry: d(1300), residenceVisaExpiry: d(640), emiratesIdExpiry: d(640),
+        docs: ["PASSPORT", { type: "PHOTO", x: { photo: { whiteBackground: false, faceCentered: true, wearingGlasses: false, headCovered: false } } }, "BIRTH_CERTIFICATE"] },
+      { firstName: "Anaya", lastName: "Mehta", relationship: "CHILD", employmentType: "DEPENDENT", nationality: "IN", gender: "FEMALE", dateOfBirth: yearsAgo(4, -100), passportNo: "Z8830511", passportExpiry: d(1500), residenceVisaExpiry: d(640), emiratesIdExpiry: d(640), docs: ["PASSPORT", "PHOTO", "BIRTH_CERTIFICATE", "RESIDENCE_VISA"] },
     ],
   );
   await booking({
     h: mehta, ref: "BK-PARIS7", product: () => "FR-schengen-c", purpose: "TOURISM", start: 42, end: 52, status: "IN_PROGRESS", createdDaysAgo: 12, discountAed: 100, paidAed: 1500, payMethod: "CARD", appointment: 8,
     appStatus: (n) => (n === "Rohan" ? "APPOINTMENT_BOOKED" : n === "Priya" ? "IN_REVIEW" : "DOCS_PENDING"),
     events: (n) => n === "Rohan"
-      ? [["STATUS_IN_REVIEW", "Booking confirmed — processing started", 11], ["STATUS_APPOINTMENT_BOOKED", "TLScontact Dubai — family slot held for all four", 6]]
-      : n === "Priya" ? [["STATUS_IN_REVIEW", "Booking confirmed — processing started", 11], ["CUSTOMER_UPLOAD", "Customer uploaded UAE residence visa", 9]]
+      ? [["STATUS_IN_REVIEW", "Booking confirmed — collecting documents", 11], ["STATUS_APPOINTMENT_BOOKED", "TLScontact Dubai — family appointment booked for all four", 6]]
+      : n === "Priya" ? [["STATUS_IN_REVIEW", "Booking confirmed — collecting documents", 11], ["CUSTOMER_UPLOAD", "Customer uploaded UAE residence visa", 9]]
       : [["STATUS_DOCS_PENDING", "Waiting for birth certificate and residence visa", 11]],
     notes: "Wants Paris + Disneyland; hotel near Marne-la-Vallée for 3 nights.",
   });
@@ -199,7 +282,7 @@ async function main() {
     { name: "Omar Khalid", phone: "+971509990011", source: "WHATSAPP", emirate: "DXB", createdDaysAgo: 70 },
     [
       { firstName: "Omar", lastName: "Khalid", relationship: "SELF", employmentType: "SELF_EMPLOYED", employerName: "Khalid Trading FZE", designation: "Owner", monthlySalaryAed: 30000, nationality: "EG", gender: "MALE", dateOfBirth: yearsAgo(44), passportNo: "A29384756", passportExpiry: d(1100), residenceVisaExpiry: d(500), emiratesIdExpiry: d(500), travelHistory: "SA,TR,FR", docs: ["PASSPORT", "PHOTO", "EMIRATES_ID", "RESIDENCE_VISA", "TRADE_LICENSE", "BANK_STATEMENT"] },
-      { firstName: "Nour", lastName: "Khalid", relationship: "SPOUSE", employmentType: "DEPENDENT", nationality: "EG", gender: "FEMALE", dateOfBirth: yearsAgo(38), passportNo: "A30112233", passportExpiry: d(1300), residenceVisaExpiry: d(500), emiratesIdExpiry: d(500), priorRejections: 1, docs: ["PASSPORT", "PHOTO", "EMIRATES_ID", "RESIDENCE_VISA"] },
+      { firstName: "Nour", lastName: "Khalid", relationship: "SPOUSE", employmentType: "DEPENDENT", nationality: "EG", gender: "FEMALE", dateOfBirth: yearsAgo(38), passportNo: "A30112233", passportExpiry: d(1300), residenceVisaExpiry: d(500), emiratesIdExpiry: d(500), priorRejections: 1, docs: ["PASSPORT", "PHOTO", "EMIRATES_ID", "RESIDENCE_VISA", { type: "MARRIAGE_CERTIFICATE", x: { attested: false } }] },
     ],
   );
   await booking({
@@ -227,8 +310,8 @@ async function main() {
 
   await db.message.createMany({
     data: [
-      { enterpriseId: agency.id, authorName: "Ravi Kumar", body: "Mehta family — can we get all four on the same TLS slot? Kids have school." },
-      { enterpriseId: agency.id, authorName: "Safar Concierge · Noura", fromAgent: true, body: "Done — family slot on Saturday 10:30 at TLScontact Dubai. Courier pickup from Al Barsha on Friday evening." },
+      { enterpriseId: agency.id, authorName: "Ravi Kumar", body: "Does TLS Dubai accept the residence visa transfer receipt instead of the old passport?" },
+      { enterpriseId: agency.id, authorName: "Safar Support", fromAgent: true, body: "For France, bring both passports (old one with the visa stamp) — the transfer receipt alone is often not accepted. Transferring the visa before the appointment is safest." },
     ],
   });
   for (const [action, entity, ago] of [["enterprise.created", "Enterprise", 180], ["pricing.updated", "Enterprise", 90], ["booking.quoted", "Booking", 12], ["payment.recorded", "Booking", 11]] as const) {

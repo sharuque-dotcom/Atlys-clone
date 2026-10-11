@@ -11,6 +11,9 @@ import { can, DOC_TYPES } from "@/lib/types";
 import { getProduct } from "@/lib/catalog";
 import { Badge, Flash, Section, StatusBadge } from "@/components/ui";
 import { TravelerForm } from "../TravelerForm";
+import { reviewDoc } from "@/lib/review";
+import { Findings, ReviewBadge } from "@/components/Review";
+import { PendingRefresh } from "@/components/PendingRefresh";
 import { deleteDocument, uploadDocument } from "../actions";
 
 type Params = Promise<{ id: string }>;
@@ -67,17 +70,19 @@ export default async function TravelerPage({ params, searchParams }: { params: P
       <div className="grid gap-6 lg:grid-cols-[1fr_360px]">
         <div className="space-y-6">
           <Section title={`Document vault · ${t.documents.length}`}>
+            <PendingRefresh active={t.documents.some((d) => d.aiStatus === "PENDING")} />
             {t.documents.length === 0 ? <p className="p-4 text-sm text-slate-500">Nothing uploaded yet. Documents are stored once and reused across every application.</p> : (
               <ul className="divide-y divide-slate-100">
                 {t.documents.map((d) => {
-                  const ex = d.extracted ? (JSON.parse(d.extracted) as { mrzValid?: boolean }) : null;
+                  const rv = reviewDoc(d, t);
                   return (
-                    <li key={d.id} className="flex items-center gap-3 px-4 py-3">
+                    <li key={d.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
                       <div className="min-w-0 flex-1">
                         <div className="text-sm font-medium">{d.type in DOCUMENT_LABELS ? DOCUMENT_LABELS[d.type as keyof typeof DOCUMENT_LABELS].en : d.type}</div>
                         <div className="truncate text-xs text-slate-500"><a href={`/api/files/${d.id}`} className="text-brand-700 hover:underline">{d.fileName}</a> · {(d.size / 1024).toFixed(0)} KB · {fmtDate(d.createdAt, locale)}{d.expiresAt ? ` · expires ${fmtDate(d.expiresAt, locale)}` : ""}</div>
+                        <Findings review={rv} />
                       </div>
-                      {ex && <Badge tone={ex.mrzValid ? "green" : "red"}>{ex.mrzValid ? "MRZ verified" : "MRZ mismatch"}</Badge>}
+                      <ReviewBadge review={rv} />
                       {d.expiresAt && d.expiresAt < now && <Badge tone="red">Expired</Badge>}
                       {manage && <form action={deleteDocument}><input type="hidden" name="id" value={d.id} /><button className="btn-ghost text-xs text-rose-700">Remove</button></form>}
                     </li>
@@ -90,8 +95,8 @@ export default async function TravelerPage({ params, searchParams }: { params: P
               <label className="block"><span className="label">Document type</span>
                 <select name="type" className="input">{DOC_TYPES.map((k) => <option key={k} value={k}>{k in DOCUMENT_LABELS ? DOCUMENT_LABELS[k as keyof typeof DOCUMENT_LABELS].en : "Other"}</option>)}</select></label>
               <label className="block"><span className="label">Expiry date (if any)</span><input type="date" name="expiresAt" className="input" /></label>
-              <label className="block sm:col-span-2"><span className="label">File (PDF/JPG/PNG, max 10 MB)</span><input type="file" name="file" required accept=".pdf,.jpg,.jpeg,.png,.webp,.heic" className="block w-full text-sm" /></label>
-              <label className="block sm:col-span-2"><span className="label">Passport MRZ (optional — the two lines at the bottom of the bio page)</span>
+              <label className="block sm:col-span-2"><span className="label">File (PDF/JPG/PNG, max 10 MB)</span><input type="file" name="file" required accept=".pdf,.jpg,.jpeg,.png,.webp" className="block w-full text-sm" /></label>
+              <label className="block sm:col-span-2"><span className="label">Passport MRZ (optional — the AI reads it from the scan; paste it only if the scan is poor)</span>
                 <textarea name="mrz" rows={2} className="input font-mono text-xs uppercase" placeholder={"P<INDSHARMA<<ROHAN<<<<<<<<<<<<<<<<<<<<<<<<<<\nZ1234567<0IND8805123M3101015<<<<<<<<<<<<<<04"} /></label>
               <div className="sm:col-span-2"><button className="btn-primary">Upload to vault</button></div>
             </form>

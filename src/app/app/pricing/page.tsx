@@ -4,7 +4,7 @@ import { getLocale } from "@/lib/locale";
 import { DESTINATIONS } from "@/lib/catalog";
 import { country } from "@/lib/countries";
 import { formatAed } from "@/lib/money";
-import { price, volumeDiscount } from "@/lib/pricing";
+import { governmentFeeAed, platformFee, retailServiceFils } from "@/lib/pricing";
 import { Flash, PageHeader, Section } from "@/components/ui";
 import { savePricing } from "./actions";
 
@@ -17,40 +17,41 @@ export default async function Pricing({ searchParams }: { searchParams: Promise<
 
   return (
     <div>
-      <PageHeader title="Pricing & margins" subtitle={`You buy at Safar net rates (${e.plan.toLowerCase()} plan: ${Math.round(volumeDiscount(e.plan) * 100)}% off list) and set your own retail price. Embassy fees always pass through at cost.`} />
+      <PageHeader title="Pricing & margins" subtitle={`You set your own service fee per visa. Safar charges a platform fee of ${formatAed(platformFee(e.plan).serviceFils, locale)} per application on the ${e.plan.toLowerCase()} plan. Embassy fees pass through at cost.`} />
       <Flash searchParams={sp} />
       <form action={savePricing}>
-        <Section title="Default markup" className="mb-6">
+        <Section title="Default price adjustment" className="mb-6">
           <div className="flex flex-wrap items-end gap-4 p-4">
-            <label className="block"><span className="label">Markup on Safar&apos;s net service fee</span>
-              <div className="flex items-center gap-2"><input name="markupPct" type="number" min={0} max={500} defaultValue={e.markupPct} className="input w-28" /><span className="text-sm text-slate-500">%</span></div></label>
-            <p className="max-w-md text-xs text-slate-500">Used for every visa without a fixed retail fee below, and for Priority/Protect bundles and courier.</p>
+            <label className="block"><span className="label">Adjust suggested market prices by</span>
+              <div className="flex items-center gap-2"><input name="markupPct" type="number" min={-50} max={300} defaultValue={e.markupPct} className="input w-28" /><span className="text-sm text-slate-500">%</span></div></label>
+            <p className="max-w-md text-xs text-slate-500">Suggested fees reflect typical UAE agency prices. The adjustment applies to every visa without a fixed fee below, and to Express / Express + Refund and courier.</p>
           </div>
         </Section>
         <Section title="Retail service fee per visa (AED, before VAT)">
           <div className="overflow-x-auto">
             <table className="w-full min-w-[760px]">
-              <thead className="border-b border-slate-100 bg-slate-50/60"><tr><th className="th">Visa</th><th className="th text-end">Embassy fee</th><th className="th text-end">Your cost</th><th className="th">Your fee</th><th className="th text-end">Margin</th><th className="th text-end">Customer pays (adult)</th></tr></thead>
+              <thead className="border-b border-slate-100 bg-slate-50/60"><tr><th className="th">Visa</th><th className="th text-end">Embassy fee</th><th className="th text-end">Suggested</th><th className="th">Your fee</th><th className="th text-end">Margin after platform fee</th><th className="th text-end">Customer pays (adult)</th></tr></thead>
               <tbody className="divide-y divide-slate-100">
                 {DESTINATIONS.flatMap((d) => d.products).map((p) => {
-                  const net = price(p, "STANDARD", "NONE", e.plan);
-                  const sellService = overrides.get(p.id) ?? Math.round(net.serviceFils * (1 + e.markupPct / 100));
+                  const fee = platformFee(e.plan).serviceFils;
+                  const gov = governmentFeeAed(p) * 100;
+                  const sellService = retailServiceFils(p, { plan: e.plan, markupPct: e.markupPct, overrides: Object.fromEntries(overrides), vatRegistered: e.invoiceType === "VAT" });
                   const vat = e.invoiceType === "VAT" ? Math.round(sellService * 0.05) : 0;
                   return (
                     <tr key={p.id}>
                       <td className="td"><div className="font-medium">{country(p.destination).flag} {p.name}</div><div className="text-xs text-slate-500">{p.processingDays.standard} working days</div></td>
-                      <td className="td text-end tabular-nums">{formatAed(net.governmentFils, locale)}</td>
-                      <td className="td text-end tabular-nums">{formatAed(net.serviceFils, locale)}</td>
+                      <td className="td text-end tabular-nums">{formatAed(gov, locale)}</td>
+                      <td className="td text-end tabular-nums text-slate-500">{formatAed(p.serviceFeeAed * 100, locale)}</td>
                       <td className="td"><input name={`fee_${p.id}`} type="number" step="1" min={0} defaultValue={overrides.has(p.id) ? overrides.get(p.id)! / 100 : ""} placeholder={String(Math.round(sellService / 100))} className="input w-28 py-1.5" /></td>
-                      <td className="td text-end tabular-nums text-emerald-700">{formatAed(sellService - net.serviceFils, locale)}</td>
-                      <td className="td text-end font-medium tabular-nums">{formatAed(net.governmentFils + sellService + vat, locale)}</td>
+                      <td className="td text-end tabular-nums text-emerald-700">{formatAed(sellService - fee, locale)}</td>
+                      <td className="td text-end font-medium tabular-nums">{formatAed(gov + sellService + vat, locale)}</td>
                     </tr>
                   );
                 })}
               </tbody>
             </table>
           </div>
-          <div className="border-t border-slate-100 p-4"><button className="btn-primary">Save prices</button> <span className="ms-2 text-xs text-slate-500">Leave a fee blank to use the default markup. Fees below your cost are raised to cost.</span></div>
+          <div className="border-t border-slate-100 p-4"><button className="btn-primary">Save prices</button> <span className="ms-2 text-xs text-slate-500">Leave a fee blank to use the suggested price with your adjustment.</span></div>
         </Section>
       </form>
     </div>

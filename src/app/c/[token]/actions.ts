@@ -24,5 +24,5 @@ export async function portalUpload(formData: FormData) {
     redirect(`/c/${token}?error=${encodeURIComponent(e instanceof Error ? e.message : "Upload failed")}#t-${travelerId}`);
   }
   revalidatePath(`/c/${token}`);
-  redirect(`/c/${token}?ok=${encodeURIComponent("Thank you — uploaded. Your agent has been notified.")}#t-${travelerId}`);
+  redirect(`/c/${token}?ok=${encodeURIComponent("Thank you — uploaded. We are checking it now.")}#t-${travelerId}`);
 }

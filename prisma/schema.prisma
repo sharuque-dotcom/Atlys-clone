@@ -234,7 +234,13 @@ model TravelerDocument {
   storageKey String
   sha256     String
   expiresAt  DateTime?
-  extracted  String? // JSON — fields extracted by OCR / MRZ
+  extracted  String? // JSON — fields read from the document (AI extraction + MRZ)
+  aiStatus   String    @default("PENDING") // PENDING | DONE | ERROR | SKIPPED
+  aiError    String?
+  aiModel    String?
+  aiCheckedAt DateTime?
+  /// Agent accepted the document despite findings: JSON { by, note, at }
+  override   String?
   createdAt  DateTime  @default(now())
 }
 

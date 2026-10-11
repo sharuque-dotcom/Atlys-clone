@@ -6,6 +6,7 @@ import { db } from "./db";
 import { can, type Permission } from "./types";
 
 const COOKIE = "safar_session";
+export const SESSION_COOKIE = COOKIE;
 const TTL_DAYS = 14;
 
 function hashToken(token: string) {

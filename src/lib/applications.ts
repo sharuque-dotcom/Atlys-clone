@@ -108,7 +108,7 @@ export async function createBooking(user: MemberUser, input: BookingInput) {
     return { traveler, product, q, risk };
   });
   const net = prepared.reduce((s, p) => s + p.q.net.totalFils, 0);
-  // Discounts come out of the agency's margin, never below Safar's net cost.
+  // Discounts come out of the agency's margin, never below the platform fee.
   const discount = Math.min(Math.max(0, input.discountFils ?? 0), prepared.reduce((s, p) => s + p.q.marginFils, 0));
   const totals = bookingTotals(prepared.map((p) => p.q.sell), discount, pricing.vatRegistered);
 
@@ -168,7 +168,7 @@ export async function confirmBooking(user: Pick<MemberUser, "id" | "name" | "ent
   for (const a of booking.applications.filter((x) => x.status === "DRAFT")) {
     const ctx = householdContext(a.traveler, companions, booking.customer.members);
     const next: AppStatus = missingRequired(checklist(a, a.traveler, ctx)) > 0 ? "DOCS_PENDING" : "IN_REVIEW";
-    await transition(user, a.id, next, "Booking confirmed — processing started");
+    await transition(user, a.id, next, "Booking confirmed — collecting documents");
   }
   await db.booking.update({ where: { id: booking.id }, data: { status: "IN_PROGRESS" } });
   await audit({ id: user.id, name: user.name, enterpriseId: user.enterpriseId }, "booking.confirmed", "Booking", booking.id);

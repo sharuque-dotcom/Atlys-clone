@@ -4,7 +4,7 @@ import { isValidEmiratesId, isValidTrn, luhnValid, normalizeEmiratesId, normaliz
 import { ageOn, eligibility, requirementsFor } from "./requirements";
 import { getProduct } from "./catalog";
 import { assessRisk } from "./risk";
-import { bookingTotals, price, quote } from "./pricing";
+import { bookingTotals, governmentFeeAed, platformFee, quote } from "./pricing";
 import { addWorkingDays } from "./dates";
 
 const ICAO_SAMPLE = "P<UTOERIKSSON<<ANNA<MARIA<<<<<<<<<<<<<<<<<<<\nL898902C36UTO7408122F1204159ZE184226B<<<<<10";
@@ -140,20 +140,21 @@ describe("risk report", () => {
 });
 
 describe("pricing & VAT", () => {
-  it("applies 5% VAT only to service components, not government fees", () => {
-    const p = price(getProduct("FR-schengen-c")!, "PRIORITY", "PICKUP", "STARTER");
-    expect(p.governmentFils).toBe(36500);
-    expect(p.taxableFils).toBe(39900 + 24900 + 7500);
-    expect(p.vatFils).toBe(Math.round(p.taxableFils * 0.05));
-    expect(p.totalFils).toBe(p.governmentFils + p.taxableFils + p.vatFils);
+  const agency = { plan: "STARTER", markupPct: 0, overrides: {}, vatRegistered: true };
+  it("applies 5% VAT only to service components, not embassy fees", () => {
+    const q = quote(getProduct("FR-schengen-c")!, "PRIORITY", "PICKUP", agency);
+    expect(q.sell.governmentFils).toBe(36500);
+    expect(q.sell.taxableFils).toBe(39900 + 24900 + 7500);
+    expect(q.sell.vatFils).toBe(Math.round(q.sell.taxableFils * 0.05));
+    expect(q.sell.totalFils).toBe(q.sell.governmentFils + q.sell.taxableFils + q.sell.vatFils);
   });
-  it("applies plan discounts to service fees", () => {
-    const starter = price(getProduct("GB-visitor")!, "STANDARD", "NONE", "STARTER");
-    const ent = price(getProduct("GB-visitor")!, "STANDARD", "NONE", "ENTERPRISE");
-    expect(ent.serviceFils).toBe(Math.round(starter.serviceFils * 0.8));
+  it("charges the platform fee by plan", () => {
+    expect(platformFee("STARTER").serviceFils).toBe(3900);
+    expect(platformFee("ENTERPRISE").serviceFils).toBe(1900);
+    expect(platformFee("GROWTH").vatFils).toBe(145);
   });
   it("does not charge courier for online products", () => {
-    expect(price(getProduct("SA-business")!, "STANDARD", "PICKUP").courierFils).toBe(0);
+    expect(quote(getProduct("SA-business")!, "STANDARD", "PICKUP", agency).sell.courierFils).toBe(0);
   });
 });
 
@@ -186,9 +187,9 @@ describe("families (retail)", () => {
     expect(ageOn(new Date("2018-12-10"), new Date("2026-12-10"))).toBe(8);
   });
   it("applies Schengen child embassy fees", () => {
-    expect(price(schengen, "STANDARD", "NONE", "STARTER", 4).governmentFils).toBe(0);
-    expect(price(schengen, "STANDARD", "NONE", "STARTER", 9).governmentFils).toBe(18000);
-    expect(price(schengen, "STANDARD", "NONE", "STARTER", 12).governmentFils).toBe(36500);
+    expect(governmentFeeAed(schengen, 4)).toBe(0);
+    expect(governmentFeeAed(schengen, 9)).toBe(180);
+    expect(governmentFeeAed(schengen, 12)).toBe(365);
   });
   it("judges dependents on the sponsor's income, scaled for family size", () => {
     const base = {
@@ -205,12 +206,11 @@ describe("families (retail)", () => {
 describe("agency quote", () => {
   const p = getProduct("FR-schengen-c")!;
   const agency = { plan: "GROWTH", markupPct: 50, overrides: {}, vatRegistered: true };
-  it("marks up Safar's net service fee and keeps embassy fees at cost", () => {
+  it("marks up the suggested fee; margin is after Safar's platform fee", () => {
     const q = quote(p, "STANDARD", "NONE", agency);
-    expect(q.net.serviceFils).toBe(Math.round(39900 * 0.9));
-    expect(q.sell.serviceFils).toBe(Math.round(q.net.serviceFils * 1.5));
-    expect(q.sell.governmentFils).toBe(q.net.governmentFils);
-    expect(q.marginFils).toBe(q.sell.taxableFils - q.net.taxableFils);
+    expect(q.sell.serviceFils).toBe(Math.round(39900 * 1.5));
+    expect(q.net.taxableFils).toBe(2900);
+    expect(q.marginFils).toBe(q.sell.taxableFils - 2900);
   });
   it("uses the agency's own fee when set, and no VAT if not registered", () => {
     const q = quote(p, "STANDARD", "NONE", { ...agency, overrides: { [p.id]: 30000 }, vatRegistered: false });
@@ -226,5 +226,15 @@ describe("booking totals", () => {
     expect(t.taxableFils).toBe(90000);
     expect(t.vatFils).toBe(4500);
     expect(t.totalFils).toBe(90000 + 4500 + 73000);
+  });
+});
+
+describe("MRZ builder", () => {
+  it("round-trips through the parser", async () => {
+    const { buildTd3 } = await import("./mrz");
+    const mrz = buildTd3({ surname: "Mehta", given: "Rohan", passportNo: "Z4821936", nationality3: "IND", dob: "1987-05-12", sex: "M", expiry: "2031-12-20" });
+    const r = parseTd3(mrz, new Date("2026-10-11"));
+    expect(r.errors).toEqual([]);
+    expect(r.fields).toMatchObject({ lastName: "MEHTA", firstName: "ROHAN", passportNo: "Z4821936", nationality: "IN", dateOfBirth: "1987-05-12", expiry: "2031-12-20", gender: "MALE" });
   });
 });

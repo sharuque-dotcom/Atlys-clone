@@ -7,7 +7,9 @@ import { requireMember } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { audit } from "@/lib/audit";
 import { refreshRisk } from "@/lib/applications";
+import { after } from "next/server";
 import { storeTravelerDocument } from "@/lib/documents";
+import { runExtraction } from "@/lib/review";
 import { isValidEmiratesId, normalizeEmiratesId, normalizeUaeMobile } from "@/lib/validators";
 import { EMPLOYMENT, RELATIONSHIPS } from "@/lib/types";
 
@@ -21,9 +23,8 @@ export async function uploadDocument(formData: FormData) {
   const user = await requireMember("customers.manage");
   const traveler = await db.traveler.findFirst({ where: { id: travelerId, enterpriseId: user.enterpriseId } });
   if (!traveler) back(returnTo, "error", "Traveler not found");
-  let note: string;
   try {
-    note = await storeTravelerDocument({
+    await storeTravelerDocument({
       traveler: traveler!,
       type: String(formData.get("type")),
       file: formData.get("file"),
@@ -35,7 +36,7 @@ export async function uploadDocument(formData: FormData) {
     back(returnTo, "error", e instanceof Error ? e.message : "Upload failed");
   }
   revalidatePath(returnTo.split("?")[0]);
-  back(returnTo, "ok", note!);
+  back(returnTo, "ok", "Uploaded — AI review is checking it now");
 }
 
 export async function deleteDocument(formData: FormData) {
@@ -128,4 +129,30 @@ export async function saveTraveler(formData: FormData) {
   await audit({ id: user.id, name: user.name, enterpriseId: user.enterpriseId }, "traveler.created", "Traveler", created.id);
   revalidatePath(returnTo);
   back(returnTo, "ok", `${created.firstName} added to the household`);
+}
+
+export async function rerunReview(formData: FormData) {
+  const id = String(formData.get("id"));
+  const returnTo = String(formData.get("returnTo") || "/app");
+  const user = await requireMember("customers.manage");
+  const doc = await db.travelerDocument.findFirst({ where: { id, traveler: { enterpriseId: user.enterpriseId } } });
+  if (!doc) back(returnTo, "error", "Document not found");
+  await db.travelerDocument.update({ where: { id }, data: { aiStatus: "PENDING", aiError: null } });
+  after(() => runExtraction(id));
+  back(returnTo, "ok", "AI review restarted");
+}
+
+/** Agent accepts a document despite findings (e.g. embassy confirmed it's fine). Recorded in the audit log. */
+export async function overrideReview(formData: FormData) {
+  const id = String(formData.get("id"));
+  const returnTo = String(formData.get("returnTo") || "/app");
+  const note = String(formData.get("note") ?? "").trim();
+  const user = await requireMember("customers.manage");
+  if (note.length < 5) back(returnTo, "error", "Add a short reason for accepting this document.");
+  const doc = await db.travelerDocument.findFirst({ where: { id, traveler: { enterpriseId: user.enterpriseId } } });
+  if (!doc) back(returnTo, "error", "Document not found");
+  await db.travelerDocument.update({ where: { id }, data: { override: JSON.stringify({ by: user.name, note, at: new Date().toISOString() }) } });
+  await audit({ id: user.id, name: user.name, enterpriseId: user.enterpriseId }, "document.review_overridden", "TravelerDocument", id, { note });
+  revalidatePath(returnTo.split("?")[0]);
+  back(returnTo, "ok", "Accepted with override");
 }

@@ -7,7 +7,9 @@ import { country } from "@/lib/countries";
 import { fmtDate, fmtDateTime } from "@/lib/dates";
 import { formatAed } from "@/lib/money";
 import { getProduct } from "@/lib/catalog";
-import { bookingBalance, parseNetPricing, parsePricing, parseRisk } from "@/lib/applications";
+import { bookingBalance, checklist, householdContext, parseNetPricing, parsePricing, parseRisk } from "@/lib/applications";
+import { reviewChecklist } from "@/lib/review";
+import { bookingTotals } from "@/lib/pricing";
 import { BOOKING_STATUSES, PAYMENT_METHODS, RELATIONSHIPS, can, type BookingStatus } from "@/lib/types";
 import { Badge, Flash, PageHeader, RiskBadge, Section, StatusBadge } from "@/components/ui";
 import { cancelBooking, confirmBookingAction, recordPayment, rotatePortalLink } from "./actions";
@@ -18,14 +20,21 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
   const locale = await getLocale();
   const b = await db.booking.findFirst({
     where: { id, enterpriseId: user.enterpriseId },
-    include: { customer: true, applications: { include: { traveler: true }, orderBy: { createdAt: "asc" } }, payments: { orderBy: { createdAt: "asc" } }, createdBy: true },
+    include: { customer: { include: { members: true } }, applications: { include: { traveler: { include: { documents: true } } }, orderBy: { createdAt: "asc" } }, payments: { orderBy: { createdAt: "asc" } }, createdBy: true },
   });
   if (!b) notFound();
   const { paid, due } = bookingBalance(b, b.payments);
+  const companions = b.applications.map((a) => a.traveler);
+  const reviews = new Map(b.applications.map((a) => {
+    const ctx = householdContext(a.traveler, companions, b.customer.members);
+    const sponsor = b.customer.members.find((m) => m.id === a.traveler.sponsorId) ?? b.customer.members.find((m) => m.relationship === "SELF" && m.id !== a.traveler.id) ?? null;
+    return [a.id, reviewChecklist(checklist(a, a.traveler, ctx), a.traveler, { sponsor, trip: { start: a.travelStart, end: a.travelEnd, destination: a.destination, productId: a.productId, familySize: ctx.familySize } })];
+  }));
+  const familyReady = [...reviews.values()].every((r) => r.ready);
   const st = BOOKING_STATUSES[b.status as BookingStatus];
   const portal = `${process.env.APP_URL ?? "http://localhost:3000"}/c/${b.portalToken}`;
-  const net = b.applications.filter((a) => a.status !== "CANCELLED").reduce((s, a) => s + parseNetPricing(a).totalFils, 0);
-  const margin = b.sellTotalFils - net;
+  const net = b.applications.filter((a) => a.status !== "CANCELLED").reduce((s, a) => s + parseNetPricing(a).taxableFils, 0);
+  const margin = bookingTotals(b.applications.filter((a) => a.status !== "CANCELLED").map(parsePricing), b.discountFils, user.enterprise.invoiceType === "VAT").taxableFils - net;
   const agency = user.enterprise.name;
   const lines = b.applications.map((a) => `• ${a.traveler.firstName}: ${getProduct(a.productId)?.name} — ${formatAed(parsePricing(a).totalFils)}`).join("\n");
   const waText = b.status === "QUOTED"
@@ -42,6 +51,7 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
         actions={<>
           {wa && <a href={wa} target="_blank" className="btn-primary">{b.status === "QUOTED" ? "Send quote on WhatsApp" : "WhatsApp update"}</a>}
           <a href={`/receipt/${b.id}`} target="_blank" className="btn-secondary">{b.status === "QUOTED" ? "Print quote" : "Invoice / receipt"}</a>
+          {b.status !== "QUOTED" && <a href={`/api/pack/booking/${b.id}`} className={familyReady ? "btn-primary" : "btn-secondary"}>Download family pack (PDF)</a>}
         </>}
       />
       <Flash searchParams={sp} />
@@ -51,13 +61,13 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
           <Section title={`Travelers · ${b.applications.length} visa${b.applications.length === 1 ? "" : "s"}`}>
             <div className="overflow-x-auto">
               <table className="w-full min-w-[620px]">
-                <thead className="border-b border-slate-100"><tr><th className="th">Traveler</th><th className="th">Visa</th><th className="th">Risk</th><th className="th">Status</th><th className="th text-end">Price</th></tr></thead>
+                <thead className="border-b border-slate-100"><tr><th className="th">Traveler</th><th className="th">Visa</th><th className="th">Documents (AI)</th><th className="th">Status</th><th className="th text-end">Price</th></tr></thead>
                 <tbody className="divide-y divide-slate-100">
                   {b.applications.map((a) => (
                     <tr key={a.id} className="hover:bg-slate-50">
                       <td className="td"><Link href={`/app/applications/${a.id}`} className="font-medium text-brand-700 hover:underline">{a.traveler.firstName} {a.traveler.lastName}</Link><div className="text-xs text-slate-500">{country(a.traveler.nationality).flag} {RELATIONSHIPS[a.traveler.relationship as keyof typeof RELATIONSHIPS]?.en} · <span className="font-mono">{a.ref}</span></div></td>
                       <td className="td text-xs">{getProduct(a.productId)?.name}</td>
-                      <td className="td"><RiskBadge level={parseRisk(a)?.level} /></td>
+                      <td className="td">{(() => { const r = reviews.get(a.id)!; return r.blockers ? <Badge tone="red">{r.blockers} to fix</Badge> : r.pending ? <Badge tone="blue">checking…</Badge> : r.warnings ? <Badge tone="amber">ready · {r.warnings} warning{r.warnings === 1 ? "" : "s"}</Badge> : <Badge tone="green">ready</Badge>; })()} <RiskBadge level={parseRisk(a)?.level} /></td>
                       <td className="td"><StatusBadge status={a.status} locale={locale} /></td>
                       <td className="td text-end tabular-nums">{formatAed(parsePricing(a).totalFils, locale)}</td>
                     </tr>
@@ -118,8 +128,8 @@ export default async function BookingPage({ params, searchParams }: { params: Pr
             <Section title="Your margin">
               <dl className="space-y-1.5 p-4 text-sm">
                 <div className="flex justify-between"><dt className="text-slate-500">Sold to customer</dt><dd className="tabular-nums">{formatAed(b.sellTotalFils, locale)}</dd></div>
-                <div className="flex justify-between"><dt className="text-slate-500">Safar net cost</dt><dd className="tabular-nums">{formatAed(net, locale)}</dd></div>
-                <div className="flex justify-between border-t border-slate-100 pt-2 font-semibold"><dt>Margin (before VAT)</dt><dd className="tabular-nums text-emerald-700">{formatAed(margin, locale)}</dd></div>
+                <div className="flex justify-between"><dt className="text-slate-500">Safar platform fees</dt><dd className="tabular-nums">{formatAed(net, locale)}</dd></div>
+                <div className="flex justify-between border-t border-slate-100 pt-2 font-semibold"><dt>Margin (excl. VAT, before your own costs)</dt><dd className="tabular-nums text-emerald-700">{formatAed(margin, locale)}</dd></div>
               </dl>
             </Section>
           )}

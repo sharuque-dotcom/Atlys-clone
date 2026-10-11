@@ -7,11 +7,12 @@ import { createHash, randomUUID } from "node:crypto";
 // (AWS S3 me-central-1 / Azure Blob UAE North) with server-side encryption — the interface stays the same.
 const ROOT = path.resolve(process.env.STORAGE_DIR ?? "./storage");
 
-export const ALLOWED_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp", "image/heic"];
+// Formats the AI reviewer can read. (HEIC from iPhones must be exported as JPG.)
+export const ALLOWED_MIME = ["application/pdf", "image/jpeg", "image/png", "image/webp"];
 export const MAX_BYTES = 10 * 1024 * 1024;
 
 export async function putObject(enterpriseId: string, file: File) {
-  if (!ALLOWED_MIME.includes(file.type)) throw new Error("Only PDF, JPG, PNG, WEBP or HEIC files are accepted.");
+  if (!ALLOWED_MIME.includes(file.type)) throw new Error("Only PDF, JPG, PNG or WEBP files are accepted (on iPhone, share the photo as JPG).");
   if (file.size > MAX_BYTES) throw new Error("Files must be 10 MB or smaller.");
   const buf = Buffer.from(await file.arrayBuffer());
   const key = `${enterpriseId}/${randomUUID()}${path.extname(file.name).toLowerCase().replace(/[^.a-z0-9]/g, "")}`;

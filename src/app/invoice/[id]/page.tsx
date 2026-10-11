@@ -72,7 +72,7 @@ export default async function InvoicePage({ params }: { params: Promise<{ id: st
               return (
                 <tr key={a.id}>
                   <td className="border p-2 font-mono">{a.ref}</td>
-                  <td className="border p-2">Visa processing (net) — {getProduct(a.productId)?.name} — {a.traveler.firstName} {a.traveler.lastName} ({country(a.destination).en}) · {BUNDLES[a.bundle as Bundle].en}{p.courierFils ? " + courier" : ""}</td>
+                  <td className="border p-2">Platform fee — {getProduct(a.productId)?.name} — {a.traveler.firstName} {a.traveler.lastName} ({country(a.destination).en}) · {BUNDLES[a.bundle as Bundle].en}{p.courierFils ? " + courier" : ""}</td>
                   <td className="border p-2 text-end tabular-nums">{(p.taxableFils / 100).toFixed(2)}</td>
                   <td className="border p-2 text-end tabular-nums">{(p.vatFils / 100).toFixed(2)}</td>
                   <td className="border p-2 text-end tabular-nums">{(p.governmentFils / 100).toFixed(2)}</td>
