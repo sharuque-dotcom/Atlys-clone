@@ -11,7 +11,8 @@ export const metadata: Metadata = {
 export default async function RootLayout({ children }: { children: React.ReactNode }) {
   const locale = await getLocale();
   return (
-    <html lang={locale} dir={dirOf(locale)}>
+    // suppressHydrationWarning: browser extensions (e.g. Scribe, Grammarly) add attributes to <html>/<body> before React loads.
+    <html lang={locale} dir={dirOf(locale)} suppressHydrationWarning>
       <head>
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
@@ -20,7 +21,7 @@ export default async function RootLayout({ children }: { children: React.ReactNo
           href="https://fonts.googleapis.com/css2?family=IBM+Plex+Sans+Arabic:wght@400;500;600;700&family=Inter:wght@400;500;600;700&display=swap"
         />
       </head>
-      <body className="min-h-screen antialiased">{children}</body>
+      <body className="min-h-screen antialiased" suppressHydrationWarning>{children}</body>
     </html>
   );
 }
